@@ -54,6 +54,21 @@ L'infrastructure tourne via Docker.
 > [!NOTE]
 > Nous avons configuré `vite.config.js` pour autoriser le hostname `macmini-m4.local` et le Backend pour accepter les requêtes CORS depuis n'importe quelle origine en dev.
 
+
+## 🤖 Agents IA & API
+Le backend expose des interfaces pour dialoguer avec des Agents Intelligents (Gemini ou Ollama).
+
+### Configuration
+1.  Modifier le fichier `backend/.env` :
+    ```env
+    LLM_PROVIDER=gemini # ou "ollama"
+    GEMINI_API_KEY=votre_cle_api
+    OLLAMA_BASE_URL=http://localhost:11434
+    ```
+2.  Endpoint disponible : `POST /api/agents/botanique`
+    *   Payload : `{"query": "Tomate coeur de boeuf"}`
+    *   Réponse : JSON structuré (champs en français : `taxonomie`, `cycle_vie`, etc.)
+
 ## 📂 Structure du Projet
 
 ```text

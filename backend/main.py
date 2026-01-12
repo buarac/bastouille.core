@@ -7,6 +7,8 @@ app = FastAPI(
     version="0.1.0"
 )
 
+from routers import agents
+
 # Configuration CORS pour autoriser l'accès depuis le réseau local
 app.add_middleware(
     CORSMiddleware,
@@ -15,6 +17,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(agents.router)
 
 @app.get("/")
 async def root():

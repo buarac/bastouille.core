@@ -2,3 +2,7 @@ fastapi
 uvicorn[standard]
 python-multipart
 pydantic
+google-generativeai
+httpx
+python-dotenv
+supabase

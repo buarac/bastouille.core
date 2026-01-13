@@ -1,0 +1,27 @@
+# Environments
+.env
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# System
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Build
+dist/
+build/

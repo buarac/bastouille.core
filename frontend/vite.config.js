@@ -10,6 +10,12 @@ export default defineConfig({
   ],
   server: {
     allowedHosts: ['macmini-m4.local', 'all'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
   test: {
     globals: true,

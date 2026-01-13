@@ -55,6 +55,17 @@ L'infrastructure tourne via Docker.
 > Nous avons configuré `vite.config.js` pour autoriser le hostname `macmini-m4.local` et le Backend pour accepter les requêtes CORS depuis n'importe quelle origine en dev.
 
 
+## 💻 Interface Utilisateur (Frontend)
+L'application utilise un **Menu Latéral** et un design **"Dark Glassmorphism"** (Thème Sombre & Verre Flottant).
+
+### Ecrans Disponibles
+*   **Botanique** (`/botanique`) :
+    *   Recherche de plantes via l'Agent IA.
+    *   **Visualisations graphiques** :
+        *   Taxonomie hiérarchique avec badges.
+        *   Calendrier cultural (Frise chronologique 12 mois).
+        *   Caractéristiques sous forme de cartes iconographiques.
+
 ## 🤖 Agents IA & API
 Le backend expose des interfaces pour dialoguer avec des Agents Intelligents (Gemini ou Ollama).
 

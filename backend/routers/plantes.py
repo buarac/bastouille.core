@@ -26,11 +26,15 @@ async def save_plant(plant_input: Dict[str, Any]):
     Sauvegarde une fiche plante reçue de l'agent.
     Attend le JSON complet de ReponseBotanique.
     """
-    # Note: plant_input est le JSON complet (ReponseBotanique)
-    result = service.save_plant(plant_input)
-    if not result:
-        raise HTTPException(status_code=500, detail="Erreur lors de la sauvegarde de la plante")
-    return result
+    try:
+        # Note: plant_input est le JSON complet (ReponseBotanique)
+        result = service.save_plant(plant_input)
+        if not result:
+            raise HTTPException(status_code=500, detail="Erreur inconnue lors de la sauvegarde (pas de résultat retourné)")
+        return result
+    except Exception as e:
+        # En dev, on retourne l'erreur explicite
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/plantes", response_model=List[PlantSummary])
 async def list_plants():

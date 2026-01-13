@@ -44,9 +44,15 @@ class BotaniquePersistenceService:
 
             response = self.supabase.table("botanique_plantes").insert(payload).execute()
             
+            # Debug log
+            logger.info(f"Supabase Insert Response: {response}")
+
             if response.data and len(response.data) > 0:
                 return response.data[0]
-            return None
+            
+            # If we get here, insertion failed silently?
+            logger.error(f"Insert returned no data. Response: {response}")
+            raise Exception(f"Supabase Insert Failed: No data returned. Props: {response}")
             
         except Exception as e:
             logger.error(f"Error saving plant: {e}")

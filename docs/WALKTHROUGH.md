@@ -61,6 +61,7 @@ L'application utilise un **Menu Latéral** et un design **"Dark Glassmorphism"**
 ### Ecrans Disponibles
 *   **Botanique** (`/botanique`) :
     *   Recherche de plantes via l'Agent IA.
+    *   **Sauvegarde & Gestion** : Persistance des fiches en base de données (Supabase) + Liste des plantes sauvegardées.
     *   **Visualisations graphiques** :
         *   Taxonomie hiérarchique avec badges.
         *   Calendrier cultural (Frise chronologique 12 mois).
@@ -105,4 +106,5 @@ Le backend expose des interfaces pour dialoguer avec des Agents Intelligents (Ge
 ## 🛠 Notes Techniques
 *   **Tailwind CSS v4** : Configuré avec le plugin `@tailwindcss/vite`.
     *   *Bugfix appliqué* : Création d'un `postcss.config.js` vide et downgrade vers Vite v6 pour résoudre une incompatibilité.
-*   **Python venv** : Le script `npm run dev` utilise automatiquement via le chemin relatif `.venv/bin/uvicorn`, donc pas besoin d'activer le venv manuellement pour le lancer via npm.
+*   **Python venv** : Le script `npm run dev` utilise automatiquement via le chemin relatif `.venv/bin/uvicorn`.
+*   **Variables d'environnement** : `python-dotenv` est utilisé dans `main.py` pour charger explicitement le fichier `.env` au démarrage (nécessaire pour Supabase Client).

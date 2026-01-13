@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Loader2, Sprout, CloudRain, ShoppingBasket, Sun, Droplets, Ruler, Palette, Shapes, Wind, Leaf, Tag, Utensils, Save, Trash2, ArrowLeft, Bookmark } from 'lucide-react';
+import { Search, Loader2, Sprout, CloudRain, ShoppingBasket, Sun, Droplets, Ruler, Palette, Shapes, Wind, Leaf, Tag, Utensils, Save, Trash2, ArrowLeft, Bookmark, Globe, Feather } from 'lucide-react';
 import { fetchBotaniqueInfo, savePlant, getSavedPlants, deletePlant } from '../services/api';
 
 const Botanique = () => {
@@ -207,15 +207,14 @@ const Botanique = () => {
                         <div className="absolute -right-10 -bottom-10 opacity-5 pointer-events-none">
                             <Leaf size={300} strokeWidth={0.5} />
                         </div>
-
                         {/* Action Header on Card */}
                         <div className="absolute top-6 right-6 flex gap-2 z-20">
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
                                 className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors backdrop-blur-md border ${saving
-                                        ? 'bg-emerald-500/20 text-emerald-100 border-emerald-500/30 cursor-wait'
-                                        : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
+                                    ? 'bg-emerald-500/20 text-emerald-100 border-emerald-500/30 cursor-wait'
+                                    : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
                                     }`}
                             >
                                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -225,8 +224,7 @@ const Botanique = () => {
 
                         {/* Contenu Header */}
                         <div className="p-8 pb-4 relative z-10">
-                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mr-16">
-                                {/* mr-16 to make space for save button on mobile/desktop */}
+                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mr-4">
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Badge text={data.cycle_vie.type} color="bg-indigo-500/30 text-indigo-100 border-indigo-400/20" icon={Sun} />
@@ -249,8 +247,8 @@ const Botanique = () => {
                                     </h2>
                                 </div>
 
-                                {/* Taxonomie Visuelle */}
-                                <div className="bg-black/20 p-4 rounded-xl border border-white/5 backdrop-blur-sm flex flex-col gap-2 min-w-[200px]">
+                                {/* Taxonomie Visuelle (Avec Marge Top pour éviter le bouton) */}
+                                <div className="bg-black/20 p-4 rounded-xl border border-white/5 backdrop-blur-sm flex flex-col gap-2 min-w-[200px] mt-12 md:mt-16">
                                     <div className="flex items-center justify-between text-xs text-slate-400 uppercase tracking-wider">
                                         <span>Ordre</span>
                                         <span className="text-white font-medium">{data.taxonomie.ordre || '?'}</span>
@@ -293,8 +291,10 @@ const Botanique = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <FeatureCard icon={Utensils} label="Saveur" value={data.caracteristiques.saveur} />
+                                <FeatureCard icon={Feather} label="Texture" value={data.caracteristiques.texture} />
                                 <FeatureCard icon={Palette} label="Couleur" value={data.caracteristiques.couleur} />
                                 <FeatureCard icon={Ruler} label="Calibre" value={data.caracteristiques.calibre} />
+                                <FeatureCard icon={Globe} label="Origine" value={data.caracteristiques.origine} fullWidth />
                                 <FeatureCard icon={Shapes} label="Forme" value={data.caracteristiques.forme} />
                                 <FeatureCard icon={Wind} label="Pollinisateurs" value={data.caracteristiques.pollinisateurs} fullWidth />
                             </div>
@@ -361,8 +361,8 @@ const CalendarGrid = ({ title, months, icon: Icon, colorClass }) => {
                     return (
                         <div key={index} className="flex flex-col items-center gap-1 group relative">
                             <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-medium transition-all duration-300 ${isMonthActive
-                                    ? `${colorClass} shadow-[0_0_10px_rgba(255,255,255,0.2)] scale-110`
-                                    : 'text-slate-600 bg-white/5'
+                                ? `${colorClass} shadow-[0_0_10px_rgba(255,255,255,0.2)] scale-110`
+                                : 'text-slate-600 bg-white/5'
                                 }`}>
                                 {m}
                             </div>

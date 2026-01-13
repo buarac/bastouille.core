@@ -1,9 +1,7 @@
 const API_BASE_URL = '/api';
 
 /**
- * Interroge l'agent Botanique.
- * @param {string} query - La plante à rechercher.
- * @returns {Promise<Object>} - La réponse JSON structurée.
+ * Interroge l'agent Botanique (IA)
  */
 export const fetchBotaniqueInfo = async (query) => {
     try {
@@ -16,15 +14,8 @@ export const fetchBotaniqueInfo = async (query) => {
         });
 
         if (!response.ok) {
-            let errorMessage = `API Error: ${response.statusText}`;
-            try {
-                const errorData = await response.json();
-                // FastAPI retourne souvent 'detail', mais on gère aussi 'message'
-                errorMessage = errorData.detail || errorData.message || errorMessage;
-            } catch (e) {
-                // Si le body n'est pas du JSON valide, on garde le statusText
-            }
-            throw new Error(errorMessage);
+            const errorData = await response.json();
+            throw new Error(errorData.detail || `Erreur serveur: ${response.status}`);
         }
 
         return await response.json();

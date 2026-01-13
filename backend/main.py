@@ -7,7 +7,7 @@ app = FastAPI(
     version="0.1.0"
 )
 
-from routers import agents
+from routers import agents, plantes
 
 # Configuration CORS pour autoriser l'accès depuis le réseau local
 app.add_middleware(
@@ -19,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(agents.router)
+app.include_router(plantes.router)
 
 @app.get("/")
 async def root():

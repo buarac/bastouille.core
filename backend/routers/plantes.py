@@ -1,0 +1,60 @@
+from fastapi import APIRouter, HTTPException, status
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
+from services.persistence import BotaniquePersistenceService
+
+router = APIRouter(
+    prefix="/api/botanique",
+    tags=["botanique"]
+)
+
+service = BotaniquePersistenceService()
+
+class PlantCreate(BaseModel):
+    data: Dict[str, Any]
+
+class PlantSummary(BaseModel):
+    id: str
+    nom_commun: str
+    espece: str
+    variete: Optional[str] = None
+    created_at: str
+
+@router.post("/plantes", status_code=status.HTTP_201_CREATED)
+async def save_plant(plant_input: Dict[str, Any]):
+    """
+    Sauvegarde une fiche plante reçue de l'agent.
+    Attend le JSON complet de ReponseBotanique.
+    """
+    # Note: plant_input est le JSON complet (ReponseBotanique)
+    result = service.save_plant(plant_input)
+    if not result:
+        raise HTTPException(status_code=500, detail="Erreur lors de la sauvegarde de la plante")
+    return result
+
+@router.get("/plantes", response_model=List[PlantSummary])
+async def list_plants():
+    """
+    Liste toutes les plantes sauvegardées (résumé).
+    """
+    return service.get_all_plants()
+
+@router.get("/plantes/{plant_id}")
+async def get_plant(plant_id: str):
+    """
+    Récupère la fiche complète d'une plante.
+    """
+    plant = service.get_plant_by_id(plant_id)
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plante non trouvée")
+    return plant
+
+@router.delete("/plantes/{plant_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_plant(plant_id: str):
+    """
+    Supprime une plante sauvegardée.
+    """
+    success = service.delete_plant(plant_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Plante non trouvée ou erreur suppression")
+    return None

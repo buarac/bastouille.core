@@ -5,6 +5,7 @@ import { fetchBotaniqueInfo, savePlant, getSavedPlants, deletePlant } from '../s
 const Botanique = () => {
     const [query, setQuery] = useState('');
     const [data, setData] = useState(null);
+    const [usage, setUsage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [savedPlants, setSavedPlants] = useState([]);
@@ -31,10 +32,13 @@ const Botanique = () => {
         setLoading(true);
         setError(null);
         setData(null);
+        setUsage(null);
 
         try {
             const result = await fetchBotaniqueInfo(query);
-            setData(result);
+            // result = { data: {...}, usage: {...} }
+            setData(result.data);
+            setUsage(result.usage);
         } catch (err) {
             console.error(err);
             setError(`Erreur: ${err.message || "Impossible de récupérer les informations."}`);
@@ -43,13 +47,14 @@ const Botanique = () => {
         }
     };
 
+    // ... (handleSave, handleDelete unchanged)
+
     const handleSave = async () => {
         if (!data) return;
         setSaving(true);
         try {
-            await savePlant(data);
-            await loadSavedPlants(); // Refresh list
-            // Simple visual feedback could be improved with a Toast system
+            await savePlant(data); // We save only the plant data, not usage
+            await loadSavedPlants();
         } catch (err) {
             setError("Erreur lors de la sauvegarde.");
         } finally {
@@ -63,7 +68,6 @@ const Botanique = () => {
 
         try {
             await deletePlant(id);
-            // Optimistic update
             setSavedPlants(prev => prev.filter(p => p.id !== id));
         } catch (err) {
             console.error("Deletion failed", err);
@@ -72,32 +76,13 @@ const Botanique = () => {
 
     const handleSelectPlant = async (plantId) => {
         setLoading(true);
-        // We fetch the full detail if needed, or if we stored full json in the list we could use it.
-        // The list API endpoint returns summary, so we fetch detail or use a separate call.
-        // Persistence service `get_all_plants` returns summary. `get_plant_by_id` returns full.
-        // Let's fetch detail.
+        setUsage(null); // No usage stats for saved items
         try {
-            // Need to import or use a direct fetch here since we didn't export getPlantById in api.js clearly?
-            // Actually let's assume getSavedPlants returns summary, we need a generic getPlant.
-            // Wait, I missed adding `getPlant` to api.js? 
-            // I added `getSavedPlants` (list) and `savePlant`. I didn't add `getPlant` to fetch by ID.
-            // However, `data` contains the full JSON.
-            // Let's quickly add `getPlant` to api.js or just fetch it here given I can't edit api.js in the same step easily (I can but sequential).
-            // Actually, I'll assume I can add it to api.js in a separate small edit or just inline the fetch here for now 
-            // to avoid context switching, but cleanliness suggests adding it to api.js.
-            // I'll update api.js FIRST if I missed it.
-            // Checking api.js content from Step 735... 
-            // I added savePlant, getSavedPlants, deletePlant. I DID NOT add getPlantById.
-            // I should add it.
-
-            // Temporary fix: I will fetch directly here or update api.js.
-            // Updating api.js is better. I will do it in a separate call or just include it if I can multi-step? 
-            // No, I will just do inline fetch for ID here to save time, its 1 line.
             const response = await fetch(`/api/botanique/plantes/${plantId}`);
             if (!response.ok) throw new Error("Erreur chargement");
             const plant = await response.json();
-            setData(plant.data); // plant.data holds the ReponseBotanique json
-            setQuery(""); // Clear search to indicate we are viewing a saved item
+            setData(plant.data);
+            setQuery("");
         } catch (err) {
             setError("Impossible de charger la plante sauvegardée.");
         } finally {
@@ -107,6 +92,7 @@ const Botanique = () => {
 
     const clearSearch = () => {
         setData(null);
+        setUsage(null);
         setQuery("");
         setError(null);
     };
@@ -116,8 +102,15 @@ const Botanique = () => {
             <header className="flex justify-between items-start">
                 <div>
                     <h2 className="text-3xl font-light tracking-wide text-white">Agent Botanique</h2>
-                    <p className="text-slate-300 font-light mt-2">
+                    <p className="text-slate-300 font-light mt-2 flex items-center gap-2">
                         Interrogez l'IA pour obtenir la fiche technique de vos plantes.
+                        {usage && (
+                            <span className="ml-4 px-2 py-1 bg-white/5 border border-white/10 rounded-md text-xs font-mono text-emerald-400/80 flex items-center gap-2">
+                                <span title="Input Tokens">In: {usage.input}</span>
+                                <span className="text-slate-600">|</span>
+                                <span title="Output Tokens">Out: {usage.output}</span>
+                            </span>
+                        )}
                     </p>
                 </div>
             </header>

@@ -66,6 +66,7 @@ L'application utilise un **Menu Latéral** et un design **"Dark Glassmorphism"**
         *   Taxonomie hiérarchique avec badges.
         *   Calendrier cultural (Frise chronologique 12 mois).
         *   Caractéristiques sous forme de cartes iconographiques.
+    *   **Monitoring** : Affichage de la consommation de tokens (Input/Output) par requête.
 
 ## 🤖 Agents IA & API
 Le backend expose des interfaces pour dialoguer avec des Agents Intelligents (Gemini ou Ollama).

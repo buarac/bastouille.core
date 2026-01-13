@@ -18,7 +18,7 @@ export const fetchBotaniqueInfo = async (query) => {
             throw new Error(errorData.detail || `Erreur serveur: ${response.status}`);
         }
 
-        return await response.json();
+        return await response.json(); // Returns { data: {...}, usage: {...} }
     } catch (error) {
         console.error('Error fetching botanique info:', error);
         throw error;

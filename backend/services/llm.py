@@ -7,7 +7,7 @@ from core.config import settings
 
 class LLMProvider(ABC):
     @abstractmethod
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> tuple[str, Dict[str, int]]:
         pass
 
 class GeminiProvider(LLMProvider):
@@ -17,7 +17,7 @@ class GeminiProvider(LLMProvider):
         genai.configure(api_key=settings.GEMINI_API_KEY)
         self.model = genai.GenerativeModel(settings.BOTANIQUE_MODEL_NAME or "gemini-1.5-flash")
 
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> tuple[str, Dict[str, int]]:
         # Note: Google's API usually handles system prompts via specific configuration or prepending.
         # For simplicity, we prepend it here if provided.
         full_prompt = prompt
@@ -25,14 +25,27 @@ class GeminiProvider(LLMProvider):
             full_prompt = f"System Instruction: {system_prompt}\n\nUser Query: {prompt}"
         
         response = self.model.generate_content(full_prompt)
-        return response.text
+        
+        # Extract usage
+        usage = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+        }
+        
+        if hasattr(response, "usage_metadata"):
+            usage["prompt_tokens"] = response.usage_metadata.prompt_token_count
+            usage["completion_tokens"] = response.usage_metadata.candidates_token_count
+            usage["total_tokens"] = response.usage_metadata.total_token_count
+            
+        return response.text, usage
 
 class OllamaProvider(LLMProvider):
     def __init__(self):
         self.base_url = settings.OLLAMA_BASE_URL
         self.model_name = settings.OLLAMA_MODEL_NAME or "mistral"
 
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> tuple[str, Dict[str, int]]:
         url = f"{self.base_url}/api/generate"
         
         payload = {
@@ -48,7 +61,14 @@ class OllamaProvider(LLMProvider):
                 response = await client.post(url, json=payload, timeout=60.0)
                 response.raise_for_status()
                 data = response.json()
-                return data.get("response", "")
+                
+                usage = {
+                    "prompt_tokens": data.get("prompt_eval_count", 0),
+                    "completion_tokens": data.get("eval_count", 0),
+                    "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
+                }
+                
+                return data.get("response", ""), usage
             except Exception as e:
                 raise RuntimeError(f"Ollama call failed: {str(e)}")
 

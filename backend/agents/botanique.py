@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Optional, List, Dict
 from schemas.botanique import ReponseBotanique
+from schemas.agent import AgentResponse, TokenUsage
 from services.llm import GeminiProvider
 from services.agent_config import AgentConfigService
 
@@ -54,23 +55,34 @@ class BotaniqueAgent:
         
         return system_prompt, full_user_prompt
 
-    async def analyze(self, plant_name: str) -> ReponseBotanique:
+    async def analyze(self, plant_name: str) -> AgentResponse:
         logger.info(f"BotaniqueAgent analyzing: {plant_name}")
         
         # Build dynamic prompts
         system_prompt, user_prompt = await self._build_prompt(plant_name)
         
-        raw_response = await self.llm.generate(user_prompt, system_prompt=system_prompt)
+        # Now returns tuple (text, usage)
+        raw_response, usage_data = await self.llm.generate(user_prompt, system_prompt=system_prompt)
         
         try:
             # Nettoyage basique si le LLM est bavard (markdown blocks)
             cleaned_response = raw_response.replace("```json", "").replace("```", "").strip()
-            data = json.loads(cleaned_response)
-            return ReponseBotanique(**data)
+            data_dict = json.loads(cleaned_response)
+            botanique_data = ReponseBotanique(**data_dict)
+            
+            # Construct Generic Agent Response
+            return AgentResponse(
+                data=botanique_data,
+                usage=TokenUsage(
+                    input=usage_data.get("prompt_tokens", 0),
+                    output=usage_data.get("completion_tokens", 0),
+                    total=usage_data.get("total_tokens", 0)
+                )
+            )
+            
         except json.JSONDecodeError:
             logger.error(f"Failed to parse JSON from LLM: {raw_response}")
             raise ValueError("L'agent n'a pas renvoyé un JSON valide.")
         except Exception as e:
             logger.error(f"Validation error: {str(e)}")
             raise e
-

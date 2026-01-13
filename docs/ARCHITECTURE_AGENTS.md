@@ -47,4 +47,13 @@ Au lieu de longues instructions théoriques, nous injectons des exemples concret
 | `agent_key` | `text` (FK) | Lien vers l'agent parent |
 | `input_text` | `text` | Simulation de la phrase utilisateur |
 | `output_json` | `jsonb` | La réponse parfaite attendue (format strict) |
-| `description` | `text` | Méta-data (ex: "Cas nominal", "Cas erreur") |
+
+### 4. Monitoring & Observabilité
+
+Tout agent implémenté doit systématiquement retouner des métriques de consommation de tokens afin de permettre un suivi des coûts et de la performance.
+
+- **Input Tokens** : Nombre de tokens envoyés au modèle (Prompt utilisateur + System Prompt + Exemples Few-Shot).
+- **Output Tokens** : Nombre de tokens générés par le modèle.
+- **Structure de Réponse** : La réponse de l'agent ne doit pas être le JSON brut métier, mais un objet enveloppe standardisé (ex: `AgentResponse`) contenant :
+    - `data`: Le résultat métier (JSON).
+    - `usage`: Les statistiques de tokens (`input`, `output`, `total`).

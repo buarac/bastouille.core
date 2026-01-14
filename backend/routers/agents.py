@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from agents.botanique import BotaniqueAgent
 from schemas.agent import AgentResponse
 
-router = APIRouter(prefix="/api/agents", tags=["Agents"])
+router = APIRouter(prefix="/agents", tags=["Agents"])
 
 class AgentRequest(BaseModel):
     query: str

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from services.persistence import BotaniquePersistenceService
 
 router = APIRouter(
-    prefix="/api/botanique",
+    prefix="/botanique",
     tags=["botanique"]
 )
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from services.traceability import TraceabilityService
 
 router = APIRouter(
-    prefix="/api/admin",
+    prefix="/admin",
     tags=["admin"]
 )
 

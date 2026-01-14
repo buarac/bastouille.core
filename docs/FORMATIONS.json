@@ -1,0 +1,62 @@
+[
+  {
+    "code": "LIBRE",
+    "nom": "Forme Libre",
+    "description": "Forme naturelle, taille douce uniquement."
+  },
+  {
+    "code": "TIGE",
+    "nom": "Tige / Demi-Tige",
+    "description": "Tronc haut (1.80m+), port libre."
+  },
+  {
+    "code": "GOBELET",
+    "nom": "Gobelet / Vase",
+    "description": "Forme basse, centre aéré, sans axe central, 3 à 5 charpentières."
+  },
+  {
+    "code": "AXE_CENTRAL",
+    "nom": "Axe Central",
+    "description": "Axe vertical dominant, structure pyramidale."
+  },
+  {
+    "code": "PALMETTE",
+    "nom": "Palmette Oblique/U",
+    "description": "Forme plate (espalier), conduite sur mur/fil."
+  },
+  {
+    "code": "PALMETTE_HORIZONTALE",
+    "nom": "Palmette Horizontale",
+    "description": "Forme palmette à étages horizontaux (Verrier/Diable)."
+  },
+  {
+    "code": "CORDON_SIMPLE",
+    "nom": "Cordon Simple",
+    "description": "Forme basse horizontale simple (un seul bras)."
+  },
+  {
+    "code": "CORDON_DOUBLE",
+    "nom": "Cordon Double",
+    "description": "Forme basse horizontale double (en T, deux bras)."
+  },
+  {
+    "code": "GUYOT_SIMPLE",
+    "nom": "Guyot Simple",
+    "description": "Vigne : Taille mixte (une baguette + un courson)."
+  },
+  {
+    "code": "GUYOT_DOUBLE",
+    "nom": "Guyot Double",
+    "description": "Vigne : Taille mixte sur deux bras (deux baguettes)."
+  },
+  {
+    "code": "CORDON_ROYAT",
+    "nom": "Cordon de Royat",
+    "description": "Vigne : Taille courte sur charpentière longue permanente."
+  },
+  {
+    "code": "LYRE",
+    "nom": "Conduite en Lyre",
+    "description": "Vigne : Conduite en V ouvert (double rideau)."
+  }
+]

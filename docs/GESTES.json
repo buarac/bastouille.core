@@ -1,0 +1,226 @@
+[
+  {
+    "id": 1,
+    "famille": "Observabilité",
+    "verbe": "Photographier",
+    "action": "Prise de vue",
+    "obj_principal": "Capture d'image pour archivage visuel ou analyse par IA (santé, croissance). - Suivi et acquisition de données",
+    "schema_json": {}
+  },
+  {
+    "id": 2,
+    "famille": "Observabilité",
+    "verbe": "Mesurer",
+    "action": "Mesure",
+    "obj_principal": "Relevé de données chiffrées (hauteur, diamètre, circonférence). - Suivi et acquisition de données",
+    "schema_json": {}
+  },
+  {
+    "id": 3,
+    "famille": "Observabilité",
+    "verbe": "Compter",
+    "action": "Comptage",
+    "obj_principal": "Dénombrement d'unités (nombre de fruits, de fleurs, de parasites). - Suivi et acquisition de données",
+    "schema_json": {}
+  },
+  {
+    "id": 4,
+    "famille": "Observabilité",
+    "verbe": "Identifier",
+    "action": "Identification",
+    "obj_principal": "Détermination précise de la variété ou d'un organisme tiers. - Suivi et acquisition de données",
+    "schema_json": {}
+  },
+  {
+    "id": 5,
+    "famille": "Observabilité",
+    "verbe": "Diagnostiquer",
+    "action": "Diagnostic",
+    "obj_principal": "Analyse d'un symptôme (carence, maladie) ou d'un état physiologique. - Suivi et acquisition de données",
+    "schema_json": {}
+  },
+  {
+    "id": 6,
+    "famille": "Observabilité",
+    "verbe": "Contrôler",
+    "action": "Contrôle",
+    "obj_principal": "Vérification ponctuelle d'un paramètre (humidité du sol, tension du tuteur). - Suivi et acquisition de données",
+    "schema_json": {}
+  },
+  {
+    "id": 7,
+    "famille": "Plantation & Installation",
+    "verbe": "Semer",
+    "action": "Semis",
+    "obj_principal": "Mise en terre de graines (en pleine terre ou en godet). - Mise en place de la culture",
+    "schema_json": {}
+  },
+  {
+    "id": 8,
+    "famille": "Plantation & Installation",
+    "verbe": "Planter",
+    "action": "Plantation",
+    "obj_principal": "Mise en place définitive d'un jeune plant ou d'un sujet pérenne. - Mise en place de la culture",
+    "schema_json": {}
+  },
+  {
+    "id": 9,
+    "famille": "Plantation & Installation",
+    "verbe": "Repiquer",
+    "action": "Repiquage",
+    "obj_principal": "Transplantation d'un jeune plant pour favoriser son développement racinaire. - Mise en place de la culture",
+    "schema_json": {}
+  },
+  {
+    "id": 10,
+    "famille": "Plantation & Installation",
+    "verbe": "Bouturer",
+    "action": "Bouturage",
+    "obj_principal": "Création d'un nouveau sujet à partir d'un fragment végétal. - Mise en place de la culture",
+    "schema_json": {}
+  },
+  {
+    "id": 11,
+    "famille": "Entretien des Plantes",
+    "verbe": "Arroser",
+    "action": "Arrosage",
+    "obj_principal": "Apport d'eau manuel ou déclenchement d'un système d'irrigation. - Accompagnement de la croissance",
+    "schema_json": {}
+  },
+  {
+    "id": 12,
+    "famille": "Entretien des Plantes",
+    "verbe": "Tailler",
+    "action": "Taille",
+    "obj_principal": "Coupe de parties végétales pour la mise en forme ou la fructification. - Accompagnement de la croissance",
+    "schema_json": {}
+  },
+  {
+    "id": 13,
+    "famille": "Entretien des Plantes",
+    "verbe": "Ébourgeonner",
+    "action": "Ébourgeonnage",
+    "obj_principal": "Suppression des bourgeons latéraux (gourmands) pour concentrer la sève. - Accompagnement de la croissance",
+    "schema_json": {}
+  },
+  {
+    "id": 14,
+    "famille": "Entretien des Plantes",
+    "verbe": "Tuteurer",
+    "action": "Tuteurage",
+    "obj_principal": "Mise en place ou ajustement d'un support physique pour la verticalité. - Accompagnement de la croissance",
+    "schema_json": {}
+  },
+  {
+    "id": 15,
+    "famille": "Entretien des Plantes",
+    "verbe": "Éclaircir",
+    "action": "Éclaircissage",
+    "obj_principal": "Suppression des plants ou fruits en surnombre pour favoriser les restants. - Accompagnement de la croissance",
+    "schema_json": {}
+  },
+  {
+    "id": 16,
+    "famille": "Entretien des Plantes",
+    "verbe": "Pincer",
+    "action": "Pincement",
+    "obj_principal": "Taille de l'extrémité des tiges tendres pour favoriser la ramification. - Accompagnement de la croissance",
+    "schema_json": {}
+  },
+  {
+    "id": 17,
+    "famille": "Soins & Santé",
+    "verbe": "Observer",
+    "action": "Observation",
+    "obj_principal": "Examen visuel général pour détecter des anomalies sans diagnostic précis. - Protection et nutrition",
+    "schema_json": {}
+  },
+  {
+    "id": 18,
+    "famille": "Soins & Santé",
+    "verbe": "Traiter",
+    "action": "Traitement",
+    "obj_principal": "Application de solutions (bio, purins, etc.) contre les ravageurs ou maladies. - Protection et nutrition",
+    "schema_json": {}
+  },
+  {
+    "id": 19,
+    "famille": "Soins & Santé",
+    "verbe": "Fertiliser",
+    "action": "Fertilisation",
+    "obj_principal": "Apport de nutriments à libération rapide pour stimuler la plante. - Protection et nutrition",
+    "schema_json": {}
+  },
+  {
+    "id": 20,
+    "famille": "Soins & Santé",
+    "verbe": "Amender",
+    "action": "Amendement",
+    "obj_principal": "Apport de matière pour améliorer la structure et la vie du sol. - Protection et nutrition",
+    "schema_json": {}
+  },
+  {
+    "id": 21,
+    "famille": "Soins & Santé",
+    "verbe": "Supprimer",
+    "action": "Sanitaire",
+    "obj_principal": "Retrait et évacuation des parties atteintes par une maladie. - Protection et nutrition",
+    "schema_json": {}
+  },
+  {
+    "id": 22,
+    "famille": "Travail du Sol",
+    "verbe": "Désherber",
+    "action": "Désherbage",
+    "obj_principal": "Retrait des plantes adventices concurrentes. - Maintenance du support de culture",
+    "schema_json": {}
+  },
+  {
+    "id": 23,
+    "famille": "Travail du Sol",
+    "verbe": "Pailler",
+    "action": "Paillage",
+    "obj_principal": "Mise en place d'une couche protectrice (organique ou minérale) au sol. - Maintenance du support de culture",
+    "schema_json": {}
+  },
+  {
+    "id": 24,
+    "famille": "Travail du Sol",
+    "verbe": "Biner",
+    "action": "Binage",
+    "obj_principal": "Ameublissement de la couche superficielle (casser la croûte du sol). - Maintenance du support de culture",
+    "schema_json": {}
+  },
+  {
+    "id": 25,
+    "famille": "Travail du Sol",
+    "verbe": "Griffer",
+    "action": "Griffage",
+    "obj_principal": "Aération légère du sol en surface sans retournement. - Maintenance du support de culture",
+    "schema_json": {}
+  },
+  {
+    "id": 26,
+    "famille": "Travail du Sol",
+    "verbe": "Butter",
+    "action": "Buttage",
+    "obj_principal": "Accumulation de terre au pied de la plante pour protéger ou stabiliser. - Maintenance du support de culture",
+    "schema_json": {}
+  },
+  {
+    "id": 27,
+    "famille": "Récolte",
+    "verbe": "Récolter",
+    "action": "Récolte",
+    "obj_principal": "Prélèvement des produits (fruits, légumes, feuilles) arrivés à maturité. - Récupération de la production",
+    "schema_json": {}
+  },
+  {
+    "id": 28,
+    "famille": "Récolte",
+    "verbe": "Glaner",
+    "action": "Glanage",
+    "obj_principal": "Ramassage des restes de récolte ou des fruits tombés au sol. - Récupération de la production",
+    "schema_json": {}
+  }
+]

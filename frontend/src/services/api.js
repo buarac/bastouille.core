@@ -111,3 +111,26 @@ export const fetchAgentLogs = async (limit = 50, offset = 0) => {
         return [];
     }
 };
+/**
+ * Récupère le référentiel des gestes
+ * @param {string|null} famille - Filtre optionnel par famille
+ */
+export const fetchGestes = async (famille = null) => {
+    let url = `${API_BASE_URL}/referentiel/gestes`;
+    if (famille) {
+        url += `?famille=${encodeURIComponent(famille)}`;
+    }
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Erreur chargement gestes");
+    return await response.json();
+};
+
+/**
+ * Récupère la liste des familles de gestes
+ */
+export const fetchFamillesGestes = async () => {
+    const response = await fetch(`${API_BASE_URL}/referentiel/gestes/familles`);
+    if (!response.ok) throw new Error("Erreur chargement familles");
+    const json = await response.json();
+    return json.familles;
+};

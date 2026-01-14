@@ -1,4 +1,4 @@
-import { Leaf, Home } from 'lucide-react';
+import { Leaf, Home, Activity } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -6,6 +6,7 @@ const Sidebar = () => {
     const navItems = [
         { name: 'Accueil', path: '/', icon: Home },
         { name: 'Botanique', path: '/botanique', icon: Leaf },
+        { name: 'Activités IA', path: '/admin/activity', icon: Activity },
     ];
 
     return (

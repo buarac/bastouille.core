@@ -97,3 +97,17 @@ export const fetchAgentMeta = async () => {
         return { version: "1.0" };
     }
 };
+
+/**
+ * Récupère les logs d'activité des agents
+ */
+export const fetchAgentLogs = async (limit = 50, offset = 0) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/logs?limit=${limit}&offset=${offset}`);
+        if (!response.ok) throw new Error("Failed to fetch logs");
+        return await response.json();
+    } catch (error) {
+        console.error("Error fetching agent logs:", error);
+        return [];
+    }
+};

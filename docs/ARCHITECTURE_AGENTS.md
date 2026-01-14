@@ -50,10 +50,25 @@ Au lieu de longues instructions théoriques, nous injectons des exemples concret
 
 ### 4. Monitoring & Observabilité
 
-Tout agent implémenté doit systématiquement retouner des métriques de consommation de tokens afin de permettre un suivi des coûts et de la performance.
+Tout agent implémenté doit systématiquement retourner des métriques ET tracer son activité.
 
-- **Input Tokens** : Nombre de tokens envoyés au modèle (Prompt utilisateur + System Prompt + Exemples Few-Shot).
-- **Output Tokens** : Nombre de tokens générés par le modèle.
-- **Structure de Réponse** : La réponse de l'agent ne doit pas être le JSON brut métier, mais un objet enveloppe standardisé (ex: `AgentResponse`) contenant :
-    - `data`: Le résultat métier (JSON).
-    - `usage`: Les statistiques de tokens (`input`, `output`, `total`).
+#### A. Métriques de Réponse
+La réponse de l'agent ne doit pas être le JSON brut métier, mais un objet enveloppe standardisé (ex: `AgentResponse`) contenant :
+- `data`: Le résultat métier (JSON).
+- `usage`: Les statistiques de tokens (`input`, `output`, `total`).
+
+#### B. Traçabilité (Database Logging)
+**Règle Strict** : Chaque interaction avec un LLM doit être historisée en base de données pour permettre l'audit et l'optimisation.
+
+**Composant** : `TraceabilityService` (Backend)
+
+Données à persister obligatoirement :
+- **Identité** : Nom et Version de l'agent.
+- **Modèle** : Nom technique du modèle utilisé (ex: `gemini-1.5-flash`).
+- **Contenu** : 
+    - `Input` (Valeur métier, ex: "Tomate").
+    - `Full Prompt` (Concaténation System + Few-Shots + User Prompt).
+    - `Response` (Réponse brute textuelle).
+- **Performance** :
+    - Tokens (Input/Output).
+    - Durée d'exécution (en millisecondes).

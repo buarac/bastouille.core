@@ -3,7 +3,7 @@ import os
 from typing import List, Optional, Dict, Any
 from supabase import create_client, Client
 from datetime import datetime
-from agents.botanique import CURRENT_AGENT_VERSION
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class BotaniquePersistenceService:
                 # Version Logic
                 plant_version = data_json.get("version", "0.0")
                 item["version"] = plant_version
-                item["needs_update"] = (plant_version != CURRENT_AGENT_VERSION)
+                item["needs_update"] = (plant_version != settings.BOTANIQUE_AGENT_VERSION)
                 
                 # On retire 'data' pour ne pas le renvoyer si non nécessaire dans le modèle de résumé
                 # (bien que Pydantic le filtrerait, c'est plus propre)

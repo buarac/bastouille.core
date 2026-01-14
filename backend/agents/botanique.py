@@ -5,17 +5,20 @@ from schemas.botanique import ReponseBotanique
 from schemas.agent import AgentResponse, TokenUsage
 from services.llm import GeminiProvider
 from services.agent_config import AgentConfigService
+from services.traceability import TraceabilityService
+import time
 
 logger = logging.getLogger(__name__)
 
 # Version actuelle de l'agent
-CURRENT_AGENT_VERSION = "1.0"
+# Moved to settings.BOTANIQUE_AGENT_VERSION
 
 class BotaniqueAgent:
     def __init__(self):
         # L'agent Botanique utilise EXCLUSIVEMENT Gemini (gemini-3-flash-preview)
         self.llm = GeminiProvider()
         self.config_service = AgentConfigService()
+        self.traceability = TraceabilityService()
         self.agent_key = "botanique_v1"
 
     async def _build_prompt(self, user_input: str) -> tuple[str, str]:
@@ -65,15 +68,31 @@ class BotaniqueAgent:
         system_prompt, user_prompt = await self._build_prompt(plant_name)
         
         # Now returns tuple (text, usage)
+        start_time = time.time()
         raw_response, usage_data = await self.llm.generate(user_prompt, system_prompt=system_prompt)
+        duration_ms = int((time.time() - start_time) * 1000)
         
+        # Log Interaction
+        await self.traceability.log_interaction(
+            agent_name="Botanique",
+            agent_version=self.config_service.settings.BOTANIQUE_AGENT_VERSION if hasattr(self.config_service, 'settings') else "1.0", # Fallback or clean access
+            model_name="gemini-1.5-flash", 
+            input_content=plant_name,
+            full_prompt=f"System: {system_prompt}\nUser: {user_prompt}",
+            response_content=raw_response,
+            input_tokens=usage_data.get("prompt_tokens", 0),
+            output_tokens=usage_data.get("completion_tokens", 0),
+            duration_ms=duration_ms
+        )
+
         try:
             # Nettoyage basique si le LLM est bavard (markdown blocks)
             cleaned_response = raw_response.replace("```json", "").replace("```", "").strip()
             data_dict = json.loads(cleaned_response)
             
             # Inject Version
-            data_dict["version"] = CURRENT_AGENT_VERSION
+            from core.config import settings
+            data_dict["version"] = settings.BOTANIQUE_AGENT_VERSION
 
             botanique_data = ReponseBotanique(**data_dict)
             
@@ -85,7 +104,7 @@ class BotaniqueAgent:
                     output=usage_data.get("completion_tokens", 0),
                     total=usage_data.get("total_tokens", 0)
                 ),
-                meta={"agent_version": CURRENT_AGENT_VERSION}
+                meta={"agent_version": settings.BOTANIQUE_AGENT_VERSION}
             )
             
         except json.JSONDecodeError:

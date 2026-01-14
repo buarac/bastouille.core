@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     
     # Botanique Agent Specific
     BOTANIQUE_MODEL_NAME: str = "gemini-3-flash"
+    BOTANIQUE_AGENT_VERSION: str = "1.0"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

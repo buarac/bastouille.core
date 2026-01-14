@@ -20,6 +20,8 @@ class Calendrier(BaseModel):
     semis_pleine_terre: List[str] = Field(default=[], description="Mois de semis en pleine terre")
     recolte: List[str] = Field(default=[], description="Mois de récolte")
     floraison: List[str] = Field(default=[], description="Mois de floraison (pour les vivaces)")
+    espacement_plants: Optional[str] = Field(None, description="Espacement recommandé entre les plants (ex: '40-50 cm')")
+    espacement_rangs: Optional[str] = Field(None, description="Espacement recommandé entre les rangs (ex: '60 cm')")
 
 class Caracteristiques(BaseModel):
     couleur: Optional[str] = Field(None)
@@ -32,6 +34,7 @@ class Caracteristiques(BaseModel):
     autres: List[str] = Field(default=[], description="Autres caractéristiques pertinentes")
 
 class ReponseBotanique(BaseModel):
+    version: Optional[str] = Field(None, description="Version de l'agent ayant généré la fiche")
     taxonomie: Taxonomie
     cycle_vie: CycleVie
     categorisation: Categorisation

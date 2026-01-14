@@ -9,13 +9,25 @@ class AgentRequest(BaseModel):
     query: str
 
 @router.post("/botanique", response_model=AgentResponse)
-async def ask_botanique_agent(request: AgentRequest):
+async def ask_botanique(request: AgentRequest):
     """
-    Interroge l'agent Botanique pour obtenir des informations structurées sur une plante.
+    Interroge l'agent Botanique.
     """
-    agent = BotaniqueAgent()
     try:
+        agent = BotaniqueAgent()
         response = await agent.analyze(request.query)
         return response
+    except ValueError as e:
+         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/botanique/meta")
+async def get_botanique_meta():
+    """
+    Retourne les métadonnées de l'agent (version, etc.)
+    """
+    return {
+        "version": "1.0",
+        "model": "gemini-1.5-flash"
+    }

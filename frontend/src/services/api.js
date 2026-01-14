@@ -83,3 +83,17 @@ export const deletePlant = async (id) => {
     }
     return true;
 };
+
+/**
+ * Récupère les métadonnées de l'agent (version)
+ */
+export const fetchAgentMeta = async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/agents/botanique/meta`);
+        if (!response.ok) return { version: "1.0" }; // Fallback
+        return await response.json();
+    } catch (err) {
+        console.error("Failed to fetch agent meta", err);
+        return { version: "1.0" };
+    }
+};

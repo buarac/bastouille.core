@@ -8,6 +8,9 @@ from services.agent_config import AgentConfigService
 
 logger = logging.getLogger(__name__)
 
+# Version actuelle de l'agent
+CURRENT_AGENT_VERSION = "1.0"
+
 class BotaniqueAgent:
     def __init__(self):
         # L'agent Botanique utilise EXCLUSIVEMENT Gemini (gemini-3-flash-preview)
@@ -44,7 +47,7 @@ class BotaniqueAgent:
                 output_str = json.dumps(ex.get('output_json'), indent=2, ensure_ascii=False)
                 example_text += f"Output:\n{output_str}\n"
             example_text += "\n--- Fin des exemples ---\n"
-
+        
         # 4. Inject Schema explicitly (redundancy is good for Gemini Flash)
         schema_instruction = f"""
         Rappel du Format JSON Schema attendu:
@@ -68,6 +71,10 @@ class BotaniqueAgent:
             # Nettoyage basique si le LLM est bavard (markdown blocks)
             cleaned_response = raw_response.replace("```json", "").replace("```", "").strip()
             data_dict = json.loads(cleaned_response)
+            
+            # Inject Version
+            data_dict["version"] = CURRENT_AGENT_VERSION
+
             botanique_data = ReponseBotanique(**data_dict)
             
             # Construct Generic Agent Response
@@ -77,7 +84,8 @@ class BotaniqueAgent:
                     input=usage_data.get("prompt_tokens", 0),
                     output=usage_data.get("completion_tokens", 0),
                     total=usage_data.get("total_tokens", 0)
-                )
+                ),
+                meta={"agent_version": CURRENT_AGENT_VERSION}
             )
             
         except json.JSONDecodeError:

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Loader2, Sprout, CloudRain, ShoppingBasket, Sun, Droplets, Ruler, Palette, Shapes, Wind, Leaf, Tag, Utensils, Save, Trash2, ArrowLeft, Bookmark, Globe, Feather } from 'lucide-react';
-import { fetchBotaniqueInfo, savePlant, getSavedPlants, deletePlant } from '../services/api';
+import { Search, Loader2, Sprout, CloudRain, ShoppingBasket, Sun, Droplets, Ruler, Palette, Shapes, Wind, Leaf, Tag, Utensils, Save, Trash2, ArrowLeft, Bookmark, Globe, Feather, MoveHorizontal, ArrowLeftRight, RefreshCcw } from 'lucide-react';
+import { fetchBotaniqueInfo, savePlant, getSavedPlants, deletePlant, updatePlant } from '../services/api';
 
 // --- Helper Components Definition (Before main component) ---
 
@@ -58,20 +58,33 @@ const CalendarGrid = ({ title, months, icon: Icon, colorClass }) => {
     );
 };
 
-const PlantCard = ({ plant, onClick, onDelete }) => (
+const PlantCard = ({ plant, onClick, onDelete, onUpdate, isOutdated }) => (
     <div
         onClick={onClick}
         className="glass-panel p-6 rounded-xl border border-white/5 hover:bg-white/10 hover:border-opal/30 transition-all cursor-pointer group relative overflow-hidden"
     >
         {/* Action Top Right (Badges & Delete) */}
         <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2 text-right">
-            {/* Delete Button */}
-            <button
-                onClick={(e) => onDelete(plant.id, e)}
-                className="text-slate-500 hover:text-red-400 p-1 mb-1 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-                <Trash2 size={16} />
-            </button>
+            {/* Action Buttons Row */}
+            <div className="flex gap-1">
+                {/* Update Button (Only if Outdated) */}
+                {isOutdated && (
+                    <button
+                        onClick={(e) => onUpdate(plant, e)}
+                        className="text-amber-400 hover:text-amber-300 p-1 mb-1 bg-amber-500/10 rounded-md border border-amber-500/20 shadow-[0_0_10px_rgba(251,191,36,0.1)] transition-colors animate-pulse"
+                        title="Nouvelle version de l'IA disponible"
+                    >
+                        <RefreshCcw size={16} />
+                    </button>
+                )}
+                {/* Delete Button */}
+                <button
+                    onClick={(e) => onDelete(plant.id, e)}
+                    className="text-slate-500 hover:text-red-400 p-1 mb-1 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                    <Trash2 size={16} />
+                </button>
+            </div>
 
             {/* Badges Stacked Vertical */}
             {plant.categorie && (
@@ -98,7 +111,7 @@ const PlantCard = ({ plant, onClick, onDelete }) => (
                 <h4 className="text-xl font-light text-white leading-tight break-words">{plant.nom_commun}</h4>
             )}
 
-            <div className="pt-2 mt-2 border-t border-white/5 opacity-60">
+            <div className="pt-2 mt-2 border-t border-white/5 opacity-60 flex justify-between items-center">
                 <p className="text-xs text-slate-500 font-mono italic truncate">{plant.espece}</p>
             </div>
         </div>
@@ -124,7 +137,7 @@ const Botanique = () => {
     const [isSavedView, setIsSavedView] = useState(false);
     const [existingPlantId, setExistingPlantId] = useState(null); // ID of potentially duplicate plant
 
-    // Initial load of saved plants
+    // Initial load
     useEffect(() => {
         loadSavedPlants();
     }, []);
@@ -138,9 +151,26 @@ const Botanique = () => {
         }
     };
 
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        if (!query.trim()) return;
+    // Action: Refresh/Update Plant
+    const handleRefreshPlant = (plant, e) => {
+        e.stopPropagation(); // Prevents opening the card normally
+
+        // Construct query to re-fetch
+        const name = plant.nom_commun;
+        const variety = plant.variete;
+        const searchQuery = variety ? `${name} ${variety}` : name;
+
+        // Populate search and trigger
+        setQuery(searchQuery);
+        // We can't directly await handleSearch here because it expects an event.
+        // We'll call it manually or simulate logic. 
+        // Better: extract search logic. For now, let's just trigger logic manually:
+
+        triggerSearch(searchQuery);
+    };
+
+    const triggerSearch = async (q) => {
+        if (!q.trim()) return;
 
         setLoading(true);
         setError(null);
@@ -150,34 +180,17 @@ const Botanique = () => {
         setExistingPlantId(null);
 
         try {
-            const result = await fetchBotaniqueInfo(query);
-            // result = { data: {...}, usage: {...} }
+            const result = await fetchBotaniqueInfo(q);
             const resultData = result.data;
             setData(resultData);
             setUsage(result.usage);
 
-            // Duplicate Detection Logic
-            // We verify if a plant with same (variete + nom_commun) OR (nom_commun if no variete) already exists
-            const duplicate = savedPlants.find(p => {
-                const pVariete = (p.variete || '').toLowerCase().trim();
-                const pNom = (p.nom_commun || '').toLowerCase().trim();
-                const rVariete = (resultData.taxonomie.variete || '').toLowerCase().trim();
-                const rNom = (resultData.taxonomie.nom_commun || '').toLowerCase().trim();
-                const rEspece = (resultData.taxonomie.espece || '').toLowerCase().trim(); // Added extra check for species safety
-                const pEspece = (p.espece || '').toLowerCase().trim();
+            // Duplicate Detection (should find the plant we just clicked)
+            // Reuse logic from handleSearch
+            // ... (duplicate logic is inside handleSearch, we should refactor or duplicate it here)
+            // Let's refactor slighty by copy-pasting the matching logic since it's short.
 
-                // 1. Variete Match (Strongest)
-                if (rVariete && pVariete === rVariete && pNom === rNom) return true;
-
-                // 2. No Variete? Match Name + Species
-                if (!rVariete && !pVariete && pNom === rNom) return true;
-
-                return false;
-            });
-
-            if (duplicate) {
-                setExistingPlantId(duplicate.id);
-            }
+            checkDuplicate(resultData);
 
         } catch (err) {
             console.error(err);
@@ -185,6 +198,31 @@ const Botanique = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Extracted duplicate check to reuse
+    const checkDuplicate = (resultData) => {
+        const duplicate = savedPlants.find(p => {
+            const pVariete = (p.variete || '').toLowerCase().trim();
+            const pNom = (p.nom_commun || '').toLowerCase().trim();
+            const rVariete = (resultData.taxonomie.variete || '').toLowerCase().trim();
+            const rNom = (resultData.taxonomie.nom_commun || '').toLowerCase().trim();
+            const rEspece = (resultData.taxonomie.espece || '').toLowerCase().trim();
+            const pEspece = (p.espece || '').toLowerCase().trim();
+
+            if (rVariete && pVariete === rVariete && pNom === rNom) return true;
+            if (!rVariete && !pVariete && pNom === rNom) return true;
+            return false;
+        });
+
+        if (duplicate) {
+            setExistingPlantId(duplicate.id);
+        }
+    };
+
+    const handleSearch = async (e) => {
+        e.preventDefault();
+        triggerSearch(query);
     };
 
     const handleSave = async () => {
@@ -203,7 +241,8 @@ const Botanique = () => {
             setIsSavedView(true); // Mark as saved/viewed
             setExistingPlantId(null); // Reset update state as it is now "viewed"
         } catch (err) {
-            setError("Erreur lors de la sauvegarde.");
+            console.error(err);
+            setError(err.message || "Erreur lors de la sauvegarde.");
         } finally {
             setSaving(false);
         }
@@ -271,6 +310,19 @@ const Botanique = () => {
 
     return (
         <div className="space-y-8 animate-fade-in text-white/90">
+            {/* Global Loader Overlay */}
+            {loading && (
+                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-black/40 p-8 rounded-2xl border border-white/10 flex flex-col items-center gap-4 shadow-2xl">
+                        <Loader2 size={48} className="text-opal animate-spin" />
+                        <div className="text-center space-y-1">
+                            <h3 className="text-xl font-light text-white">Analyse en cours...</h3>
+                            <p className="text-sm text-slate-400">L'agent explore la base de connaissances.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <header className="flex justify-between items-start">
                 <div>
                     <h2 className="text-3xl font-light tracking-wide text-white">Agent Botanique</h2>
@@ -358,7 +410,14 @@ const Botanique = () => {
                             {viewMode === 'grid' ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {savedPlants.map((plant) => (
-                                        <PlantCard key={plant.id} plant={plant} onClick={() => handleSelectPlant(plant.id)} onDelete={handleDelete} />
+                                        <PlantCard
+                                            key={plant.id}
+                                            plant={plant}
+                                            onClick={() => handleSelectPlant(plant.id)}
+                                            onDelete={handleDelete}
+                                            onUpdate={handleRefreshPlant}
+                                            isOutdated={plant.needs_update}
+                                        />
                                     ))}
                                 </div>
                             ) : (
@@ -372,7 +431,14 @@ const Botanique = () => {
                                             </h4>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                 {plants.map((plant) => (
-                                                    <PlantCard key={plant.id} plant={plant} onClick={() => handleSelectPlant(plant.id)} onDelete={handleDelete} />
+                                                    <PlantCard
+                                                        key={plant.id}
+                                                        plant={plant}
+                                                        onClick={() => handleSelectPlant(plant.id)}
+                                                        onDelete={handleDelete}
+                                                        onUpdate={handleRefreshPlant}
+                                                        isOutdated={plant.needs_update}
+                                                    />
                                                 ))}
                                             </div>
                                         </div>
@@ -457,19 +523,50 @@ const Botanique = () => {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                        {/* Carte Calendrier (Gauche) */}
-                        <div className="glass p-6 rounded-2xl space-y-6 h-full">
+                        {/* Carte Culture (Gauche) - updated from Calendrier */}
+                        <div className="glass p-6 rounded-2xl space-y-6 h-full flex flex-col">
                             <h3 className="text-sm font-medium text-opal border-b border-white/10 pb-2 tracking-wider uppercase flex items-center gap-2">
-                                <Sun size={16} /> Calendrier Cultural
+                                <Sun size={16} /> Recommandations de Culture
                             </h3>
-                            <div className="space-y-8 pt-2">
+
+                            {/* Calendrier Section */}
+                            <div className="space-y-8 pt-2 flex-grow">
                                 <CalendarGrid title="Semis (Abri)" months={data.calendrier.semis_sous_abri} icon={Sprout} colorClass="bg-blue-500 text-blue-100" />
                                 <CalendarGrid title="Semis (Pleine Terre)" months={data.calendrier.semis_pleine_terre} icon={CloudRain} colorClass="bg-emerald-500 text-emerald-100" />
-                                <CalendarGrid title="Récolte" months={data.calendrier.recolte} icon={ShoppingBasket} colorClass="bg-orange-500 text-orange-100" />
                                 {data.cycle_vie.type === 'VIVACE' && (
                                     <CalendarGrid title="Floraison" months={data.calendrier.floraison} icon={Palette} colorClass="bg-pink-500 text-pink-100" />
                                 )}
+                                <CalendarGrid title="Récolte" months={data.calendrier.recolte} icon={ShoppingBasket} colorClass="bg-orange-500 text-orange-100" />
                             </div>
+
+                            {/* Spacing Section (New Feature) */}
+                            {(data.calendrier.espacement_plants || data.calendrier.espacement_rangs) && (
+                                <div className="mt-auto pt-6 border-t border-white/10">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                        <Ruler size={14} /> Espacements
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {data.calendrier.espacement_plants && (
+                                            <div className="bg-white/5 rounded-xl p-3 border border-white/5 flex flex-col gap-1 items-center text-center">
+                                                <div className="text-emerald-400/80 mb-1">
+                                                    <ArrowLeftRight size={20} />
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 uppercase tracking-wide">Entre Plants</span>
+                                                <span className="text-white font-medium">{data.calendrier.espacement_plants}</span>
+                                            </div>
+                                        )}
+                                        {data.calendrier.espacement_rangs && (
+                                            <div className="bg-white/5 rounded-xl p-3 border border-white/5 flex flex-col gap-1 items-center text-center">
+                                                <div className="text-blue-400/80 mb-1">
+                                                    <MoveHorizontal size={20} />
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 uppercase tracking-wide">Entre Rangs</span>
+                                                <span className="text-white font-medium">{data.calendrier.espacement_rangs}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Carte Caractéristiques (Droite) */}

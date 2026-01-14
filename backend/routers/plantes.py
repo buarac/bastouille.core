@@ -21,6 +21,7 @@ class PlantSummary(BaseModel):
     created_at: str
     cycle_vie_type: Optional[str] = None
     categorie: Optional[str] = None
+    needs_update: bool = False
 
 @router.post("/plantes", status_code=status.HTTP_201_CREATED)
 async def save_plant(plant_input: Dict[str, Any]):

@@ -3,6 +3,7 @@ import os
 from typing import List, Optional, Dict, Any
 from supabase import create_client, Client
 from datetime import datetime
+from agents.botanique import CURRENT_AGENT_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,8 @@ class BotaniquePersistenceService:
                 "nom_commun": nom_commun,
                 "espece": espece,
                 "variete": variete,
-                "data": plant_data,
-                "created_at": datetime.utcnow().isoformat() # Optional: update timestamp? Or add updated_at column? Keeping simple for now.
+                "data": plant_data
+                # "created_at": ... DO NOT update creation date
             }
 
             response = self.supabase.table("botanique_plantes").update(payload).eq("id", plant_id).execute()
@@ -114,6 +115,11 @@ class BotaniquePersistenceService:
                 
                 item["cycle_vie_type"] = cycle_vie.get("type")
                 item["categorie"] = categorisation.get("categorie")
+                
+                # Version Logic
+                plant_version = data_json.get("version", "0.0")
+                item["version"] = plant_version
+                item["needs_update"] = (plant_version != CURRENT_AGENT_VERSION)
                 
                 # On retire 'data' pour ne pas le renvoyer si non nécessaire dans le modèle de résumé
                 # (bien que Pydantic le filtrerait, c'est plus propre)

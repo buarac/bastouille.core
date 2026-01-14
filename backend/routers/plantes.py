@@ -19,6 +19,8 @@ class PlantSummary(BaseModel):
     espece: str
     variete: Optional[str] = None
     created_at: str
+    cycle_vie_type: Optional[str] = None
+    categorie: Optional[str] = None
 
 @router.post("/plantes", status_code=status.HTTP_201_CREATED)
 async def save_plant(plant_input: Dict[str, Any]):
@@ -34,6 +36,19 @@ async def save_plant(plant_input: Dict[str, Any]):
         return result
     except Exception as e:
         # En dev, on retourne l'erreur explicite
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/plantes/{plant_id}", status_code=status.HTTP_200_OK)
+async def update_plant(plant_id: str, plant_input: Dict[str, Any]):
+    """
+    Met à jour une fiche plante existante.
+    """
+    try:
+        result = service.update_plant(plant_id, plant_input)
+        if not result:
+            raise HTTPException(status_code=404, detail="Plante non trouvée ou erreur mise à jour")
+        return result
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/plantes", response_model=List[PlantSummary])

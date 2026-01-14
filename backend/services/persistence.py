@@ -58,6 +58,39 @@ class BotaniquePersistenceService:
             logger.error(f"Error saving plant: {e}")
             raise e
 
+    def update_plant(self, plant_id: str, plant_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Updates an existing plant in the database.
+        """
+        if not self.supabase:
+            return None
+
+        try:
+            # Extract main fields for columns
+            taxonomie = plant_data.get("taxonomie", {})
+            nom_commun = taxonomie.get("nom_commun", "Inconnu")
+            espece = f"{taxonomie.get('genre', '')} {taxonomie.get('espece', '')}".strip()
+            variete = taxonomie.get("variete")
+
+            payload = {
+                "nom_commun": nom_commun,
+                "espece": espece,
+                "variete": variete,
+                "data": plant_data,
+                "created_at": datetime.utcnow().isoformat() # Optional: update timestamp? Or add updated_at column? Keeping simple for now.
+            }
+
+            response = self.supabase.table("botanique_plantes").update(payload).eq("id", plant_id).execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error updating plant {plant_id}: {e}")
+            raise e
+
     def get_all_plants(self) -> List[Dict[str, Any]]:
         """
         Retrieves all saved plants (summary only).
@@ -67,10 +100,29 @@ class BotaniquePersistenceService:
 
         try:
             response = self.supabase.table("botanique_plantes")\
-                .select("id, nom_commun, espece, variete, created_at")\
+                .select("id, nom_commun, espece, variete, created_at, data")\
                 .order("created_at", desc=True)\
                 .execute()
-            return response.data
+            
+            # Enrichir avec les données extraites du JSON
+            results = []
+            for item in response.data:
+                data_json = item.get("data", {}) or {}
+                # Parsing défensif
+                cycle_vie = data_json.get("cycle_vie", {})
+                categorisation = data_json.get("categorisation", {})
+                
+                item["cycle_vie_type"] = cycle_vie.get("type")
+                item["categorie"] = categorisation.get("categorie")
+                
+                # On retire 'data' pour ne pas le renvoyer si non nécessaire dans le modèle de résumé
+                # (bien que Pydantic le filtrerait, c'est plus propre)
+                if "data" in item:
+                    del item["data"]
+                
+                results.append(item)
+                
+            return results
         except Exception as e:
             logger.error(f"Error fetching plants: {e}")
             return []

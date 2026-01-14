@@ -53,12 +53,33 @@ export const getSavedPlants = async () => {
 };
 
 /**
+ * Met à jour une plante
+ */
+export const updatePlant = async (id, data) => {
+    // data is the full JSON object (ReponseBotanique)
+    const response = await fetch(`${API_BASE_URL}/botanique/plantes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || "Erreur lors de la mise à jour");
+    }
+    return response.json();
+};
+
+/**
  * Supprime une plante
  */
 export const deletePlant = async (id) => {
     const response = await fetch(`${API_BASE_URL}/botanique/plantes/${id}`, {
         method: 'DELETE',
     });
-    if (!response.ok) throw new Error("Erreur suppression");
+
+    if (!response.ok) {
+        throw new Error("Erreur lors de la suppression");
+    }
     return true;
 };

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     OLLAMA_MODEL_NAME: str = "mistral"
     
     # Botanique Agent Specific
-    BOTANIQUE_MODEL_NAME: str = "gemini-3-flash-preview"
+    BOTANIQUE_MODEL_NAME: str = "gemini-3-flash"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

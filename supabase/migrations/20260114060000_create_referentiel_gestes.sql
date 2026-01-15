@@ -13,9 +13,11 @@ CREATE TABLE IF NOT EXISTS public.referentiel_gestes (
 ALTER TABLE public.referentiel_gestes ENABLE ROW LEVEL SECURITY;
 
 -- Create policy to allow read access for all
+DROP POLICY IF EXISTS "Allow read access for all" ON public.referentiel_gestes;
 CREATE POLICY "Allow read access for all" ON public.referentiel_gestes
     FOR SELECT USING (true);
 
 -- Create policy to allow insert/update for all (since we are in local dev/admin mode for now)
+DROP POLICY IF EXISTS "Allow full access for all" ON public.referentiel_gestes;
 CREATE POLICY "Allow full access for all" ON public.referentiel_gestes
     FOR ALL USING (true) WITH CHECK (true);

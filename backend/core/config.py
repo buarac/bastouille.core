@@ -11,14 +11,14 @@ class Settings(BaseSettings):
     
     # Gemini
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL_NAME: str = "gemini-1.5-flash"
+    GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
     
     # Ollama
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL_NAME: str = "mistral"
     
     # Botanique Agent Specific
-    BOTANIQUE_MODEL_NAME: str = "gemini-3-flash"
+    BOTANIQUE_MODEL_NAME: str = "gemini-2.5-flash"
     BOTANIQUE_AGENT_VERSION: str = "1.0"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

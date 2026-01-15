@@ -7,20 +7,22 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+def get_supabase_client() -> Optional[Client]:
+    url: str = os.environ.get("SUPABASE_URL")
+    key: str = os.environ.get("SUPABASE_KEY")
+    if not url or not key:
+        return None
+    try:
+        return create_client(url, key)
+    except Exception as e:
+        logger.error(f"Failed to create Supabase client: {e}")
+        return None
+
 class BotaniquePersistenceService:
     def __init__(self):
-        url: str = os.environ.get("SUPABASE_URL")
-        key: str = os.environ.get("SUPABASE_KEY")
-        
-        if not url or not key:
-            logger.warning("Supabase credentials not found. Persistence will be disabled.")
-            self.supabase: Optional[Client] = None
-        else:
-            try:
-                self.supabase: Client = create_client(url, key)
-            except Exception as e:
-                logger.error(f"Failed to initialize Supabase client: {e}")
-                self.supabase = None
+        self.supabase = get_supabase_client()
+
 
     def save_plant(self, plant_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -166,3 +168,58 @@ class BotaniquePersistenceService:
         except Exception as e:
             logger.error(f"Error deleting plant {plant_id}: {e}")
             return False
+    def find_best_match(self, query: str) -> Optional[Dict[str, Any]]:
+        """
+        Attempts to find a plant matching the query string (Name + Variety).
+        Improvement: Token-based search + Python Scoring.
+        """
+        if not self.supabase or not query:
+            return None
+
+        try:
+            # 1. Broad candidate search using the first meaningful word
+            # We assume the user query starts with the plant name (e.g. "Tomate ...", "Carotte ...")
+            words = query.strip().split()
+            if not words:
+                return None
+            
+            first_word = words[0]
+            # Strip punctuation if needed? Let's keep it simple.
+            
+            response = self.supabase.table("botanique_plantes")\
+                .select("id, nom_commun, variete")\
+                .or_(f"nom_commun.ilike.%{first_word}%,variete.ilike.%{first_word}%")\
+                .execute()
+            
+            candidates = response.data
+            if not candidates:
+                return None
+
+            # 2. Python Scoring: Word Intersection
+            # We want the candidate whose (Nom + Variete) shares the most words with Query.
+            best_c = None
+            best_score = -1 
+            
+            query_tokens = set(q.lower() for q in words)
+            
+            for c in candidates:
+                c_tokens = set(f"{c['nom_commun']} {c.get('variete') or ''}".lower().split())
+                
+                # Score = Intersection count
+                common = query_tokens.intersection(c_tokens)
+                score = len(common)
+                
+                # Bonus for exact full string match? (Optional)
+                
+                if score > best_score:
+                    best_score = score
+                    best_c = c
+            
+            # Threshold? If score is 0, maybe filter out?
+            # But since we filtered with first_word, score is likely at least 1.
+            
+            return best_c
+
+        except Exception as e:
+            logger.error(f"Error searching plant for query '{query}': {e}")
+            return None

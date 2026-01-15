@@ -15,7 +15,7 @@ class GeminiProvider(LLMProvider):
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not set")
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel(settings.BOTANIQUE_MODEL_NAME or "gemini-1.5-flash")
+        self.model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME or "gemini-3-flash")
 
     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> tuple[str, Dict[str, int]]:
         # Note: Google's API usually handles system prompts via specific configuration or prepending.

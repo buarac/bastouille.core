@@ -134,3 +134,31 @@ export const fetchFamillesGestes = async () => {
     const json = await response.json();
     return json.familles;
 };
+// --- OPERATIONS (Sujets & Evenements) ---
+
+/**
+ * Récupère la liste des sujets actifs
+ */
+export const fetchSujets = async () => {
+    const response = await fetch(`${API_BASE_URL}/operations/sujets`);
+    if (!response.ok) throw new Error("Erreur chargement sujets");
+    return await response.json();
+};
+
+/**
+ * Récupère un sujet par ID
+ */
+export const fetchSujetDetails = async (id) => {
+    const response = await fetch(`${API_BASE_URL}/operations/sujets/${id}`);
+    if (!response.ok) throw new Error("Erreur chargement détail sujet");
+    return await response.json();
+};
+
+/**
+ * Récupère la liste des événements récents
+ */
+export const fetchEvenements = async (limit = 50) => {
+    const response = await fetch(`${API_BASE_URL}/operations/evenements?limit=${limit}`);
+    if (!response.ok) throw new Error("Erreur chargement événements");
+    return await response.json();
+};

@@ -59,6 +59,14 @@ async def list_plants():
     """
     return service.get_all_plants()
 
+@router.get("/plantes/summary")
+async def get_varieties_summary():
+    """
+    Retourne la liste textuelle formatée des variétés pour inclusion dans un prompt ou autre usage.
+    """
+    text = service.get_all_varieties_summary()
+    return {"summary": text}
+
 @router.get("/plantes/{plant_id}")
 async def get_plant(plant_id: str):
     """

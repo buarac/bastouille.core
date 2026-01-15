@@ -4,7 +4,7 @@ from services.operations import OperationsService
 from schemas.operations import (
     Saison, SaisonCreate,
     Sujet, SujetCreate, SujetSummary,
-    Evenement, EvenementCreate
+    Evenement, EvenementCreate, EvenementSummary
 )
 
 router = APIRouter(
@@ -56,3 +56,7 @@ async def log_event(event: EvenementCreate):
         return service.log_event(event)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/evenements", response_model=List[EvenementSummary])
+async def list_events(limit: int = 50):
+    return service.list_events(limit=limit)

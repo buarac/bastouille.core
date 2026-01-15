@@ -223,3 +223,39 @@ class BotaniquePersistenceService:
         except Exception as e:
             logger.error(f"Error searching plant for query '{query}': {e}")
             return None
+
+    def get_all_varieties_summary(self) -> str:
+        """
+        Returns a formatted text list of all available varieties.
+        Format: "- [Nom Commun] [Variété] (Catégorie: X, Cycle: Y)"
+        """
+        if not self.supabase:
+            return "Référentiel botanique indisponible."
+        
+        try:
+            # Fetch minimal needed fields
+            response = self.supabase.table("botanique_plantes")\
+                .select("nom_commun, variete, data")\
+                .order("nom_commun", desc=False)\
+                .execute()
+
+            lines = []
+            for item in response.data:
+                nom = item.get("nom_commun", "Inconnu")
+                variete = item.get("variete") or ""
+                data = item.get("data") or {}
+                
+                cat = data.get("categorisation", {}).get("categorie", "Inconnu")
+                cycle = data.get("cycle_vie", {}).get("type", "Inconnu")
+                
+                line = f"- {nom} {variete}".strip() + f" [Catégorie: {cat}, Cycle: {cycle}]"
+                lines.append(line)
+            
+            if not lines:
+                return "Aucune variété définie dans le référentiel."
+                
+            return "\n".join(lines)
+
+        except Exception as e:
+            logger.error(f"Error getting varieties summary: {e}")
+            return "Erreur lors de la récupération du référentiel."

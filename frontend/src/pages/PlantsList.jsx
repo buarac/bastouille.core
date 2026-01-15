@@ -241,7 +241,7 @@ const PlantsList = () => {
 
             <header className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-3xl font-light tracking-wide text-white">Mes Plants</h2>
+                    <h2 className="text-3xl font-light tracking-wide text-white">Mes Variétés</h2>
                     <p className="text-slate-300 font-light mt-2">
                         Référentiel de vos variétés cultivées.
                     </p>

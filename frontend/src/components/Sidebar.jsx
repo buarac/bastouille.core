@@ -7,7 +7,7 @@ const Sidebar = () => {
         {
             title: "Jardin",
             items: [
-                { name: 'Plants', path: '/plants', icon: Sprout },
+                { name: 'Variétés', path: '/plants', icon: Sprout },
                 { name: 'Sujets', path: '/sujets', icon: LayoutList },
                 { name: 'Événements', path: '/evenements', icon: Calendar },
             ]

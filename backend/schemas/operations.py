@@ -88,3 +88,11 @@ class SujetSummary(BaseModel):
     unite: str
     stade: str
     variete_nom: Optional[str] = None # Enriched
+
+class EvenementSummary(BaseModel):
+    id: str
+    date: datetime
+    type_geste: str
+    data: Dict[str, Any]
+    sujet_nom: str
+    sujet_tracking: Optional[str] = None

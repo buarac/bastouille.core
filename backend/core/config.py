@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # Gemini
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
+    BOTANIQUE_AGENT_VERSION: str = "1.0"
+    
+    # Feature Flags
+    AGENT_ACTION_CONFIRMATION: bool = True # Force agent to ask before write actions
     
     # Ollama
     OLLAMA_BASE_URL: str = "http://localhost:11434"

@@ -4,7 +4,7 @@ import time
 from typing import List, Dict, Any, Optional
 from core.config import settings
 from services.llm import get_llm_provider
-from services.persistence import get_supabase_client
+from services.persistence import get_supabase_client, BotaniquePersistenceService
 from agents.tools.culture import CultureTools
 from agents.tools.culture_search import CultureSearchTool
 from services.traceability import TraceabilityService
@@ -15,6 +15,7 @@ class CultureAgent:
     def __init__(self):
         self.llm = get_llm_provider()
         self.supabase = get_supabase_client()
+        self.persistence = BotaniquePersistenceService() # Used for context injection
         self.traceability = TraceabilityService()
         
         # Tools
@@ -42,6 +43,30 @@ class CultureAgent:
         
         # 1. Build Prompt
         system_prompt = self._build_prompt()
+        
+        # 1b. Inject Context (Varieties)
+        varieties_summary = self.persistence.get_all_varieties_summary()
+        
+        context_block = f"""
+[CONTEXTE BOTANIQUE (LISTE DES VARIÉTÉS)]
+Voici la liste des variétés références dans la base. Tu peux t'en servir pour suggérer des corrections ou autocompléter les noms.
+{varieties_summary}
+[/CONTEXTE BOTANIQUE]
+"""
+        system_prompt += context_block
+        
+        # 1c. Safety / Confirmation Logic
+        if settings.AGENT_ACTION_CONFIRMATION:
+            safety_block = """
+[MODE SÉCURITÉ : ACTIF]
+ATTENTION : Tu as l'INTERDICTION de toucher à la base de données (outils créations/logs) sans validation explicite.
+Si l'utilisateur te demande une action (planter, noter, créer...) :
+1. Reformule d'abord ce que tu comptes faire "Je vais créer X...", "Je note l'événement Y".
+2. Attends la confirmation de l'utilisateur ("Oui", "Go", "C'est bon").
+3. SEULEMENT ALORS, génère le JSON de l'outil.
+Si l'utilisateur vient de confirmer, tu peux agir.
+"""
+            system_prompt += safety_block
         
         # Format History
         history_text = ""
@@ -79,66 +104,73 @@ NOTE IMPORTANTE :
         response_text, usage = await self.llm.generate(full_prompt)
         self._accumulate_usage(total_usage, usage)
 
-        # 4. Tool Execution Logic (Simple ReAct Loop)
-        final_response = response_text
+        # 4. Tool Execution Logic (ReAct Loop)
+        max_turns = 5
+        current_turn = 0
         
-        # Parse and execute tool if any...
-        tool_call = self._parse_tool_call(response_text)
-        
-        if tool_call:
+        while current_turn < max_turns:
+            current_turn += 1
+            
+            # 4a. Parse Tool Call
+            tool_call = self._parse_tool_call(response_text)
+            
+            if not tool_call:
+                # No tool call, just return text (Final Answer)
+                final_response = response_text
+                break
+            
+            # 4b. Execute Tool
             tool_name = tool_call.get("tool")
             tool_args = tool_call.get("args")
+            tool_output_str = ""
             
-            logger.info(f"Tool Call detected: {tool_name} with {tool_args}")
+            logger.info(f"Turn {current_turn}: Executing {tool_name}")
             
             if tool_name in self.tools_map:
                 try:
                     result = self.tools_map[tool_name](**tool_args)
                     tool_output_str = json.dumps(result, ensure_ascii=False)
-
-                    # Re-Prompting
-                    follow_up_prompt = f"""{full_prompt}
-
-ASSISTANT (TOI): J'utilise l'outil {tool_name} avec {tool_args}
-
-RÉSULTAT DE L'OUTIL:
-{tool_output_str}
-
-INSTRUCTION: 
-Grâce à ces informations:
-1. Si c'était une recherche/lecture, formule une réponse naturelle pour l'utilisateur.
-2. Si c'était une action (création/log), confirme simplement le succès.
-3. Si une suite est nécessaire (ex: après recherche -> création), génère le prochain appel d'outil.
-"""
-                    final_response, usage_re = await self.llm.generate(follow_up_prompt)
-                    self._accumulate_usage(total_usage, usage_re)
-                    
-                    # Nested Tool Check
-                    nested_tool_call = self._parse_tool_call(final_response)
-                    if nested_tool_call:
-                         n_name = nested_tool_call.get("tool")
-                         n_args = nested_tool_call.get("args")
-                         if n_name in self.tools_map:
-                             if n_name == tool_name and n_name == "search_garden":
-                                  final_response += "\n\n(Boucle détectée, arrêt.)"
-                             else:
-                                 action_res = self.tools_map[n_name](**n_args)
-                                 final_response += f"\n\n[Système] Action effectuée : {action_res}"
-
                 except Exception as e:
-                    final_response = f"Erreur lors de l'exécution de l'outil {tool_name}: {e}"
+                    tool_output_str = f"Error: {e}"
             else:
-                final_response = f"Outil inconnu : {tool_name}"
+                tool_output_str = f"Error: Tool {tool_name} not found."
+            
+            # 4c. Re-Prompt with Tool Output
+            # We append the assistant's action and the tool output to the history simulation
+            # Note: We must strip the ```json block from the assistant's visible memory if possible?
+            # Actually, standard ReAct keeps it to show "I decided to do this, here is result".
+            # BUT we want to HIDE it from the user at the END.
+            
+            # Append context
+            full_prompt += f"\nASSISTANT: J'utilise l'outil {tool_name} avec {json.dumps(tool_args)}.\n"
+            full_prompt += f"SYSTEM: Résultat de l'outil : {tool_output_str}\n"
+            full_prompt += "SYSTEM: Continue. Si tu as fini, réponds à l'utilisateur en texte naturel sans JSON. Sinon, appelle un autre outil."
+            
+            # Generate next step
+            response_text, usage_re = await self.llm.generate(full_prompt)
+            self._accumulate_usage(total_usage, usage_re)
+            
+            # Loop continues to check if new response is a tool call or text...
+            
+        final_response = response_text
+        
+        # Clean Final Response: Remove any leftover JSON blocks (e.g. if tool detected but max turns hit, or parse fail)
+        if "```" in final_response:
+             import re
+             # Remove code blocks that look like tool calls or generic json
+             clean_text = re.sub(r"```(?:\w+)?\s*\{.*?\}\s*```", "", final_response, flags=re.DOTALL)
+             if clean_text.strip():
+                 final_response = clean_text.strip()
         
         # LOGGING TRACEABILITY
         duration_ms = int((time.time() - start_time) * 1000)
         try:
             await self.traceability.log_interaction(
                 agent_name="Culture",
-                agent_version="v6", # or fetch from settings
+                agent_version="v6", 
                 model_name=settings.GEMINI_MODEL_NAME, 
                 input_content=user_query,
-                full_prompt=full_prompt, # Logging initial prompt
+                full_prompt=full_prompt, 
                 response_content=final_response,
                 input_tokens=total_usage["prompt_tokens"],
                 output_tokens=total_usage["completion_tokens"],
@@ -157,13 +189,23 @@ Grâce à ces informations:
     def _parse_tool_call(self, text: str) -> Optional[Dict]:
         """
         Extracts JSON block from text.
+        Supports various markdown fence styles.
         """
+        import re
         try:
-            if "```json" in text:
-                import re
-                match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-                if match:
-                    return json.loads(match.group(1))
+            # Flexible Regex: Optional language tag, capture content in {}
+            # We look for ``` ... { ... } ... ```
+            # We use match.group(2) if language tag present, or try to find braces directly.
+            
+            # Simple Pattern: ```(any optional chars)\n({...})\n```
+            # But we must be careful with nested braces. Regex is not good for nested json, but usually fine for simple calls.
+            
+            # Match code block with optional language identifier
+            match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+                return json.loads(json_str)
             return None
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to parse tool call JSON: {e}")
             return None

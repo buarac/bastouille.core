@@ -154,3 +154,38 @@ class OperationsService:
             logger.info(f"Updated subject {event.sujet_id} with {updates}")
 
         return created_event
+
+    def list_events(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        List recent events with subject details.
+        """
+        # Join with sujets to get tracking_id and nam
+        # Note: Supabase-py join syntax depends on FK.
+        # Assuming FK exists: evenements.sujet_id -> sujets.id
+        query = self.supabase.table("evenements").select(
+            "*, sujets(tracking_id, nom, botanique_plantes(nom_commun))"
+        ).order("date", desc=True).limit(limit)
+        
+        res = query.execute()
+        
+        # Format for UI
+        events = []
+        for item in res.data:
+            sujet = item.get("sujets") or {}
+            plant = sujet.get("botanique_plantes") or {}
+            
+            sujet_nom = plant.get("nom_commun") or sujet.get("nom") or "Inconnu"
+            
+            # Make sure id exists in the item dict to be passed to model init.
+            # Using dict for summary as schema might be complex with join
+            summary = {
+                "id": item["id"],
+                "date": item["date"],
+                "type_geste": item["type_geste"],
+                "data": item["data"],
+                "sujet_nom": sujet_nom,
+                "sujet_tracking": sujet.get("tracking_id")
+            }
+            events.append(summary)
+            
+        return events

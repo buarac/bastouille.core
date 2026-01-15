@@ -28,15 +28,48 @@ class CultureSearchTool:
         if not q:
             return {"plants": [], "subjects": [], "message": "Query empty"}
 
-        # BOTANICAL SEARCH
-        # Using Supabase 'or' filter
+        # 1. Search Botanical Reference
+        # Improve Search Strategy: Mult word matching
+        # Strategy: Fetch candidates using the first word, then rank in Python.
+        
+        q = query.strip()
+        if not q:
+            return {"plants": [], "subjects": [], "message": "Query empty"}
+            
+        words = q.split()
+        first_word = words[0]
+        
+        # Candidate Search (Broad)
         bot_res = self.supabase.table("botanique_plantes")\
             .select("id, nom_commun, variete")\
-            .or_(f"nom_commun.ilike.%{q}%,variete.ilike.%{q}%")\
-            .limit(10)\
+            .or_(f"nom_commun.ilike.%{first_word}%,variete.ilike.%{first_word}%")\
             .execute()
+            
+        raw_candidates = bot_res.data or []
         
-        plants = bot_res.data or []
+        # Ranking
+        scored = []
+        q_tokens = set(w.lower() for w in words)
+        
+        for p in raw_candidates:
+            # Construct full name string
+            full_str = f"{p['nom_commun']} {p['variete'] or ''}".lower()
+            p_tokens = set(full_str.split())
+            
+            # Score = Intersection size
+            score = len(q_tokens.intersection(p_tokens))
+            
+            # Boost if exact phrase match (optional, but simple overlap is usually enough)
+            if q.lower() in full_str:
+                score += 5
+                
+            scored.append((score, p))
+            
+        # Sort desc by score
+        scored.sort(key=lambda x: x[0], reverse=True)
+        
+        # Take Top 5 > 0 score
+        plants = [item[1] for item in scored if item[0] > 0][:5]
 
         # SUBJECT SEARCH
         # We search subjects by Name OR by linkage to found plants

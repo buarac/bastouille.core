@@ -101,7 +101,13 @@ export default function AgentChat() {
                             if (data.type === "step_start") {
                                 return {
                                     ...msg,
-                                    steps: [...(msg.steps || []), { tool: data.tool, status: "pending" }]
+                                    steps: [...(msg.steps || []), { tool: data.tool, status: "pending", type: "tool" }]
+                                };
+                            }
+                            else if (data.type === "thought") {
+                                return {
+                                    ...msg,
+                                    steps: [...(msg.steps || []), { content: data.content, type: "thought" }]
                                 };
                             }
                             else if (data.type === "step_end") {
@@ -185,22 +191,39 @@ export default function AgentChat() {
                     <div key={index} className={`flex flex-col gap-2 ${msg.role === "user" ? "items-end" : "items-start"}`}>
 
                         {/* Internal Steps (Gray Box) */}
+                        {/* Internal Steps (Gray Box) */}
                         {msg.steps && msg.steps.length > 0 && (
                             <div className="bg-slate-900/50 border border-white/5 rounded-xl p-3 mb-1 max-w-[85%] sm:max-w-[70%] space-y-2 backdrop-blur-sm">
                                 {msg.steps.map((step, i) => (
-                                    <div key={i} className="flex items-center gap-3 text-xs font-mono text-slate-400">
-                                        {step.status === "pending" ? (
-                                            <Loader2 className="w-3 h-3 animate-spin text-amber-500/80" />
+                                    <div key={i} className="flex items-start gap-3 text-xs font-mono text-slate-400">
+                                        {step.type === "thought" ? (
+                                            <>
+                                                <div className="mt-0.5 min-w-[12px]"><Bot className="w-3 h-3 text-emerald-400/70" /></div>
+                                                <span className="opacity-80 italic text-slate-400">{step.content}</span>
+                                            </>
                                         ) : (
-                                            <CheckCircle2 className="w-3 h-3 text-emerald-500/50" />
-                                        )}
-                                        <span className="opacity-90 flex-1 truncate">
-                                            Outil: <span className="text-slate-300">{step.tool}</span>
-                                        </span>
-                                        {step.duration && (
-                                            <span className="flex items-center gap-1 opacity-50 bg-white/5 px-1.5 py-0.5 rounded">
-                                                <Clock className="w-3 h-3" /> {step.duration}ms
-                                            </span>
+                                            <>
+                                                {step.status === "pending" ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin text-amber-500/80 mt-0.5" />
+                                                ) : (
+                                                    <CheckCircle2 className="w-3 h-3 text-emerald-500/50 mt-0.5" />
+                                                )}
+                                                <div className="flex-1 flex flex-col gap-0.5">
+                                                    <span className="opacity-90">
+                                                        Outil: <span className="text-slate-300">{step.tool}</span>
+                                                    </span>
+                                                    {step.result && (
+                                                        <span className="block text-[10px] text-slate-500 bg-black/20 p-1 rounded border border-white/5 font-mono overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px]">
+                                                            {step.result}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {step.duration && (
+                                                    <span className="flex items-center gap-1 opacity-50 bg-white/5 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                                        <Clock className="w-3 h-3" /> {step.duration}ms
+                                                    </span>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 ))}
@@ -211,8 +234,8 @@ export default function AgentChat() {
                         {(msg.content || msg.role === 'user') && (
                             <div
                                 className={`max-w-[85%] rounded-2xl px-6 py-4 shadow-xl text-sm leading-relaxed ${msg.role === "user"
-                                        ? "bg-emerald-600 text-white rounded-tr-sm border border-emerald-500/50"
-                                        : "bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700/50"
+                                    ? "bg-emerald-600 text-white rounded-tr-sm border border-emerald-500/50"
+                                    : "bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700/50"
                                     }`}
                             >
                                 <div className="whitespace-pre-wrap">{msg.content}</div>

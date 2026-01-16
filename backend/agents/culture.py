@@ -123,7 +123,7 @@ STYLE DE RÉPONSE :
             tool_call = self._parse_tool_call(response_text)
             
             if not tool_call:
-                # No tool call, just return text (Final Answer)
+                # Snipped...
                 # Ensure we yield the final message
                 final_response = response_text
                 
@@ -134,8 +134,26 @@ STYLE DE RÉPONSE :
                      if clean_text.strip():
                          final_response = clean_text.strip()
 
-                yield json.dumps({"type": "message", "content": final_response})
+                yield json.dumps({"type": "message", "content": final_response}) + "\n"
                 break
+            
+            # Extract Thought before JSON
+            # We look for the part of string BEFORE the tool call
+            # _parse_tool_call doesn't return index, so we approximate
+            # Assuming tool call is at the end or distinct block
+            import re
+            thought_text = ""
+            match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", response_text, re.DOTALL)
+            if match:
+                thought_text = response_text[:match.start()].strip()
+            else:
+                 # Try raw json
+                 idx = response_text.find("{")
+                 if idx > 0:
+                     thought_text = response_text[:idx].strip()
+            
+            if thought_text:
+                 yield json.dumps({"type": "thought", "content": thought_text}) + "\n"
             
             # 4b. Execute Tool
             tool_name = tool_call.get("tool")
@@ -145,7 +163,7 @@ STYLE DE RÉPONSE :
             logger.info(f"Turn {current_turn}: Executing {tool_name}")
             
             # YIELD STEP START
-            yield json.dumps({"type": "step_start", "tool": tool_name})
+            yield json.dumps({"type": "step_start", "tool": tool_name}) + "\n"
             
             step_start_ts = time.time()
             if tool_name in self.tools_map:
@@ -160,7 +178,7 @@ STYLE DE RÉPONSE :
             duration_ms = int((time.time() - step_start_ts) * 1000)
             
             # YIELD STEP END
-            yield json.dumps({"type": "step_end", "tool": tool_name, "duration": duration_ms, "result": tool_output_str})
+            yield json.dumps({"type": "step_end", "tool": tool_name, "duration": duration_ms, "result": tool_output_str}) + "\n"
             
             # 4c. Re-Prompt with Tool Output
             full_prompt += f"\nASSISTANT (Interne): Action {tool_name} exécutée.\n"

@@ -94,10 +94,12 @@ NOTE IMPORTANTE :
 - Sinon, réponds simplement en texte naturel.
 
 STYLE DE RÉPONSE :
-- Ne mentionne JAMAIS "j'utilise l'outil" ou le JSON.
+- Avant chaque action, explique ta réflexion en commençant par "PENSÉE :".
+- Ne mentionne JAMAIS "j'utilise l'outil" ou le JSON dans la réponse finale.
 - Parle comme un humain expert ("C'est noté", "Action effectuée").
 
 ```json
+PENSÉE : Je vérifie si...
 {{
   "tool": "nom_de_l_outil",
   "args": {{ ... }}
@@ -122,35 +124,58 @@ STYLE DE RÉPONSE :
             # 4a. Parse Tool Call
             tool_call = self._parse_tool_call(response_text)
             
-            if not tool_call:
-                # Snipped...
-                # Ensure we yield the final message
-                final_response = response_text
+            # Helper to extract and clean thought
+            def extract_thought(text):
+                thought = ""
+                # Remove Markdown json blocks to find text
+                clean = re.sub(r"```(?:\w+)?\s*\{.*?\}\s*```", "", text, flags=re.DOTALL)
+                # Remove raw json
+                clean = re.sub(r"\{.*\}", "", clean, flags=re.DOTALL)
                 
-                # Clean Final Response
-                if "```" in final_response:
-                     import re
-                     clean_text = re.sub(r"```(?:\w+)?\s*\{.*?\}\s*```", "", final_response, flags=re.DOTALL)
-                     if clean_text.strip():
-                         final_response = clean_text.strip()
+                if "PENSÉE :" in clean:
+                    parts = clean.split("PENSÉE :")
+                    if len(parts) > 1:
+                        thought = parts[1].strip()
+                elif "PENSÉE:" in clean: # Tolerate missing space
+                    parts = clean.split("PENSÉE:")
+                    if len(parts) > 1:
+                        thought = parts[1].strip()
+                elif clean.strip():
+                    thought = clean.strip()
+                return thought
 
-                yield json.dumps({"type": "message", "content": final_response}) + "\n"
+            if not tool_call:
+                # Check for final thought before message
+                thought = extract_thought(response_text)
+                final_msg = response_text
+                
+                # If we found a distinct thought block, try to separate it from the real message?
+                # Usually final response doesn't need "PENSÉE". 
+                # But if the model followed instructions, it might have put it.
+                if "PENSÉE" in response_text:
+                    # Split last occurrence of PENSÉE vs the rest?
+                    # Let's simple cleaning: remove PENSÉE prefix if present from the start
+                    final_msg = re.sub(r"^PENSÉE\s?:", "", final_msg, flags=re.IGNORECASE).strip()
+                
+                # Clean Final Response of JSON artifacts
+                if "```" in final_msg:
+                     clean_text = re.sub(r"```(?:\w+)?\s*\{.*?\}\s*```", "", final_msg, flags=re.DOTALL)
+                     if clean_text.strip():
+                         final_msg = clean_text.strip()
+                
+                yield json.dumps({"type": "message", "content": final_msg}) + "\n"
                 break
             
             # Extract Thought before JSON
-            # We look for the part of string BEFORE the tool call
-            # _parse_tool_call doesn't return index, so we approximate
-            # Assuming tool call is at the end or distinct block
             import re
             thought_text = ""
             match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", response_text, re.DOTALL)
-            if match:
-                thought_text = response_text[:match.start()].strip()
-            else:
-                 # Try raw json
-                 idx = response_text.find("{")
-                 if idx > 0:
-                     thought_text = response_text[:idx].strip()
+            payload_start_idx = match.start() if match else response_text.find("{")
+            
+            if payload_start_idx > 0:
+                raw_thought = response_text[:payload_start_idx].strip()
+                # Clean prefix
+                thought_text = re.sub(r"^PENSÉE\s?:", "", raw_thought, flags=re.IGNORECASE).strip()
             
             if thought_text:
                  yield json.dumps({"type": "thought", "content": thought_text}) + "\n"
@@ -264,10 +289,12 @@ NOTE IMPORTANTE :
 - Sinon, réponds simplement en texte naturel.
 
 STYLE DE RÉPONSE :
-- Ne mentionne JAMAIS "j'utilise l'outil" ou le JSON.
+- Avant chaque action, explique ta réflexion en commençant par "PENSÉE :".
+- Ne mentionne JAMAIS "j'utilise l'outil" ou le JSON dans la réponse finale.
 - Parle comme un humain expert ("C'est noté", "Action effectuée").
 
 ```json
+PENSÉE : Je vérifie si...
 {{
   "tool": "nom_de_l_outil",
   "args": {{ ... }}

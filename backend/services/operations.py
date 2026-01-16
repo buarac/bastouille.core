@@ -155,18 +155,19 @@ class OperationsService:
 
         return created_event
 
-    def list_events(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_events(self, limit: int = 50, subject_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         List recent events with subject details.
         """
         # Join with sujets to get tracking_id and nam
-        # Note: Supabase-py join syntax depends on FK.
-        # Assuming FK exists: evenements.sujet_id -> sujets.id
         query = self.supabase.table("evenements").select(
             "*, sujets(tracking_id, nom, botanique_plantes(nom_commun))"
-        ).order("date", desc=True).limit(limit)
+        ).order("date", desc=True)
         
-        res = query.execute()
+        if subject_id:
+            query = query.eq("sujet_id", subject_id)
+            
+        res = query.limit(limit).execute()
         
         # Format for UI
         events = []

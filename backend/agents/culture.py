@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import re
 from typing import List, Dict, Any, Optional
 from core.config import settings
 from services.llm import get_llm_provider
@@ -153,21 +154,43 @@ PENSÉE : Je vérifie si...
                 # Usually final response doesn't need "PENSÉE". 
                 # But if the model followed instructions, it might have put it.
                 if "PENSÉE" in response_text:
-                    # Split last occurrence of PENSÉE vs the rest?
-                    # Let's simple cleaning: remove PENSÉE prefix if present from the start
-                    final_msg = re.sub(r"^PENSÉE\s?:", "", final_msg, flags=re.IGNORECASE).strip()
-                
+                    # Remove PENSÉE prefix from message
+                    final_msg = re.sub(r"PENSÉE\s?:.*?(\n|$)", "", final_msg, flags=re.IGNORECASE|re.DOTALL).strip()
+                    # Or simpler: if we extracted thought, we should remove it from final_msg?
+                    # The issue is "response_text" contains both thought + message if no tool is used.
+                    # But often if no tool is used, the WHOLE thing is just text answer.
+                    # If model explicitly said "PENSEE: xyz", then "xyz" is the thought.
+                    # Is there a "RÉPONSE:" part? No.
+                    # So if no tool, treating the whole text as "thought" and then yielding empty message? No.
+                    
+                    # Heuristic: If "PENSÉE:" is at the start, and there is no clear separation?
+                    # Actually, if no tool is used, the model usually just talks.
+                    # BUT we enforced "Avant chaque action... explain...".
+                    # If NO action, maybe it doesn't use PENSEE?
+                    # "L'utilisateur me demande qui je suis. Je dois me présenter... Bonjour ! Je suis..."
+                    # It seems the model outputted the thought AND the answer in one block.
+                    # We need to split it.
+                    
+                    # Regex to split PENSEE .... \n\n Actual Answer?
+                    # Let's try to assume double newline separates thought from answer if PENSEE is present.
+                    split_parts = re.split(r"\n\s*\n", response_text, maxsplit=1)
+                    if len(split_parts) == 2 and "PENSÉE" in split_parts[0]:
+                         thought = split_parts[0].replace("PENSÉE :", "").replace("PENSÉE:", "").strip()
+                         final_msg = split_parts[1].strip()
+                    
                 # Clean Final Response of JSON artifacts
                 if "```" in final_msg:
                      clean_text = re.sub(r"```(?:\w+)?\s*\{.*?\}\s*```", "", final_msg, flags=re.DOTALL)
                      if clean_text.strip():
                          final_msg = clean_text.strip()
                 
+                if thought and thought != final_msg and "PENSÉE" in response_text:
+                     yield json.dumps({"type": "thought", "content": thought}) + "\n"
+
                 yield json.dumps({"type": "message", "content": final_msg}) + "\n"
                 break
             
             # Extract Thought before JSON
-            import re
             thought_text = ""
             match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", response_text, re.DOTALL)
             payload_start_idx = match.start() if match else response_text.find("{")

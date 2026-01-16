@@ -235,7 +235,7 @@ export default function AgentChat() {
                             <div
                                 className={`max-w-[85%] rounded-2xl px-6 py-4 shadow-xl text-sm leading-relaxed ${msg.role === "user"
                                     ? "bg-emerald-600 text-white rounded-tr-sm border border-emerald-500/50"
-                                    : "bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700/50"
+                                    : "bg-blue-600 text-white rounded-tl-sm border border-blue-500/50"
                                     }`}
                             >
                                 <div className="whitespace-pre-wrap">{msg.content}</div>

@@ -224,6 +224,43 @@ class BotaniquePersistenceService:
             logger.error(f"Error searching plant for query '{query}': {e}")
             return None
 
+    def find_similar_plants_vector(self, vector: list[float], limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Searches for plants using vector similarity (Cosine Distance).
+        Requires 'embedding' column and pgvector extension.
+        """
+        if not self.supabase:
+            return []
+
+        try:
+            # RPC call or direct SQL?
+            # Supabase-py 'rpc' is best if we wrapped it in a function, likely needed for vector operators like <=>
+            # However, recent supabase-py might support filter on vector columns? 
+            # Actually, standard pattern is to use a Postgres Function `match_plants` or use the `.rpc()` method.
+            # BUT, we can try using the 'neq' or manual filtering? No, vector search needs specific operator.
+            
+            # Since we didn't create a match_documents function in SQL yet, we should use `.rpc()` 
+            # but that requires creating the function in DB.
+            # OPTION B: Filter logic if supported?
+            
+            # Let's assume for now we must creating a SQL function `match_botanique` to be clean.
+            # Wait, user asked to "not modify existing methods".
+            # I will implement this method assuming the SQL function `match_botanique` exists (I will add it to the SQL file).
+            
+            params = {
+                "query_embedding": vector,
+                "match_threshold": 0.5, # Minimum similarity
+                "match_count": limit
+            }
+            
+            response = self.supabase.rpc("match_botanique", params).execute()
+            
+            return response.data if response.data else []
+            
+        except Exception as e:
+            logger.error(f"Error in vector search: {e}")
+            return []
+
     def get_all_varieties_summary(self) -> str:
         """
         Returns a formatted text list of all available varieties.

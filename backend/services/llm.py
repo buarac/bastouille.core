@@ -15,6 +15,11 @@ class LLMProvider(ABC):
         """Yields chunks of text"""
         pass
 
+    @abstractmethod
+    async def embed_text(self, text: str) -> list[float]:
+        """Embeds text into a vector"""
+        pass
+
 class GeminiProvider(LLMProvider):
     def __init__(self):
         if not settings.GEMINI_API_KEY:
@@ -67,6 +72,21 @@ class GeminiProvider(LLMProvider):
                 # Accessing chunk.text raises if the response is blocked or empty (finish_reason)
                 continue
 
+    async def embed_text(self, text: str) -> list[float]:
+        """
+        Embeds a single string using models/text-embedding-004.
+        Returns a list of floats (768 dim).
+        """
+        try:
+            result = await genai.embed_content_async(
+                model="models/text-embedding-004",
+                content=text,
+                task_type="retrieval_document" # Optimized for storage
+            )
+            return result["embedding"]
+        except Exception as e:
+            raise RuntimeError(f"Gemini Embed failed: {e}")
+
 class OllamaProvider(LLMProvider):
     def __init__(self):
         self.base_url = settings.OLLAMA_BASE_URL
@@ -102,6 +122,10 @@ class OllamaProvider(LLMProvider):
     async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None):
         # Implementation for Ollama Stream if needed later
         yield "Not implemented"
+
+    async def embed_text(self, text: str) -> list[float]:
+        # TODO: Implement using /api/embeddings or similar
+        raise NotImplementedError("Vector search not yet supported with Ollama provider")
 
 def get_llm_provider() -> LLMProvider:
     provider = settings.LLM_PROVIDER.lower()

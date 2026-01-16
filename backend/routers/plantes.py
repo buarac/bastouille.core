@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from services.persistence import BotaniquePersistenceService
+from services.llm import get_llm_provider
 
 router = APIRouter(
     prefix="/botanique",
@@ -22,6 +23,10 @@ class PlantSummary(BaseModel):
     cycle_vie_type: Optional[str] = None
     categorie: Optional[str] = None
     needs_update: bool = False
+
+class SearchQuery(BaseModel):
+    query: str
+    limit: int = 5
 
 @router.post("/plantes", status_code=status.HTTP_201_CREATED)
 async def save_plant(plant_input: Dict[str, Any]):
@@ -86,3 +91,21 @@ async def delete_plant(plant_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Plante non trouvée ou erreur suppression")
     return None
+
+@router.post("/search/vector")
+async def search_vector(search: SearchQuery):
+    """
+    Recherche sémantique par vecteur.
+    Transforme la query en embedding (via LLM) puis cherche les plus proches voisins en base.
+    """
+    try:
+        # 1. Embed Query
+        llm = get_llm_provider()
+        vector = await llm.embed_text(search.query)
+        
+        # 2. Search DB
+        results = service.find_similar_plants_vector(vector, limit=search.limit)
+        return results
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

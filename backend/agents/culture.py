@@ -89,6 +89,10 @@ NOTE IMPORTANTE :
 - Si tu décides d'effectuer une action, génère le bloc JSON ci-dessous.
 - Sinon, réponds simplement en texte naturel.
 
+STYLE DE RÉPONSE :
+- Ne mentionne JAMAIS "j'utilise l'outil" ou le JSON.
+- Parle comme un humain expert ("C'est noté", "Action effectuée").
+
 ```json
 {{
   "tool": "nom_de_l_outil",
@@ -142,9 +146,13 @@ NOTE IMPORTANTE :
             # BUT we want to HIDE it from the user at the END.
             
             # Append context
-            full_prompt += f"\nASSISTANT: J'utilise l'outil {tool_name} avec {json.dumps(tool_args)}.\n"
+            # We simulate that the assistant ALREADY said this internal thought.
+            # But to prevent it from repeating it or thinking it's the "answer", we guide the next generation.
+            
+            full_prompt += f"\nASSISTANT (Interne): Action {tool_name} exécutée.\n"
             full_prompt += f"SYSTEM: Résultat de l'outil : {tool_output_str}\n"
-            full_prompt += "SYSTEM: Continue. Si tu as fini, réponds à l'utilisateur en texte naturel sans JSON. Sinon, appelle un autre outil."
+            full_prompt += "SYSTEM: L'action est terminée. Formule maintenant ta réponse FINALE à l'utilisateur.\n"
+            full_prompt += "CONSIGNE STRICTE : Ne mentionne PAS le nom des outils techniques ou des JSON. Parle naturellement (ex: 'C'est noté', 'C'est fait')."
             
             # Generate next step
             response_text, usage_re = await self.llm.generate(full_prompt)
@@ -189,22 +197,25 @@ NOTE IMPORTANTE :
     def _parse_tool_call(self, text: str) -> Optional[Dict]:
         """
         Extracts JSON block from text.
-        Supports various markdown fence styles.
+        Supports:
+        1. Markdown fences: ```json { ... } ```
+        2. Raw JSON if text starts with { and contains "tool"
         """
         import re
         try:
-            # Flexible Regex: Optional language tag, capture content in {}
-            # We look for ``` ... { ... } ... ```
-            # We use match.group(2) if language tag present, or try to find braces directly.
-            
-            # Simple Pattern: ```(any optional chars)\n({...})\n```
-            # But we must be careful with nested braces. Regex is not good for nested json, but usually fine for simple calls.
-            
-            # Match code block with optional language identifier
+            # 1. Try Markdown Fence (Best practice)
             match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", text, re.DOTALL)
             if match:
-                json_str = match.group(1)
-                return json.loads(json_str)
+                return json.loads(match.group(1))
+            
+            # 2. Try Raw JSON (Fallback)
+            # If text looks like a JSON object { ... }
+            text_stripped = text.strip()
+            if text_stripped.startswith("{") and text_stripped.endswith("}"):
+                # Basic check to avoid parsing random sentences starting with {
+                if '"tool"' in text_stripped:
+                    return json.loads(text_stripped)
+            
             return None
         except Exception as e:
             logger.warning(f"Failed to parse tool call JSON: {e}")

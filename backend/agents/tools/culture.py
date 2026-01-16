@@ -31,12 +31,24 @@ class CultureTools:
             return f"Error: Subject with tracking ID {subject_tracking_id} not found."
 
         try:
-            geste = TypeGeste(action_type.upper())
+            # Normalize action type (handle accents like 'récolte' -> 'recolte')
+            import unicodedata
+            normalized = unicodedata.normalize('NFD', action_type).encode('ascii', 'ignore').decode('utf-8')
+            geste = TypeGeste(normalized.upper())
         except ValueError:
-             return f"Error: Invalid action type {action_type}. Allowed: {[t.value for t in TypeGeste]}"
+             return f"Error: Invalid action type {action_type} (normalized: {normalized.upper()}). Allowed: {[t.value for t in TypeGeste]}"
 
         # Merge specific args into data if not already present
-        event_data = data.copy() if data else {}
+        # Robustness: Ensure data is a dict
+        if isinstance(data, str):
+            try:
+                import json
+                data = json.loads(data)
+            except:
+                data = {}
+        
+        event_data = data.copy() if isinstance(data, dict) else {}
+        
         if quantity_final is not None:
             event_data["quantite_finale"] = quantity_final
         if observation:

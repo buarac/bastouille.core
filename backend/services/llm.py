@@ -20,7 +20,12 @@ class GeminiProvider(LLMProvider):
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not set")
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME or "gemini-3-flash")
+        self.model = genai.GenerativeModel(
+            settings.GEMINI_MODEL_NAME or "gemini-3-flash",
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.2, # Lower temperature for better instruction following (tools)
+            )
+        )
 
     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> tuple[str, Dict[str, int]]:
         # Note: Google's API usually handles system prompts via specific configuration or prepending.
@@ -55,8 +60,12 @@ class GeminiProvider(LLMProvider):
         response = await self.model.generate_content_async(full_prompt, stream=True)
         
         async for chunk in response:
-            if chunk.text:
-                yield chunk.text
+            try:
+                if chunk.text:
+                    yield chunk.text
+            except ValueError:
+                # Accessing chunk.text raises if the response is blocked or empty (finish_reason)
+                continue
 
 class OllamaProvider(LLMProvider):
     def __init__(self):

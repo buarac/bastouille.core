@@ -108,3 +108,33 @@ class CultureTools:
             return f"Success: Created subject '{created.nom}' with Tracking ID {created.tracking_id}."
         except Exception as e:
             return f"Error creating subject: {str(e)}"
+
+    def list_garden_events(self, limit: int = 20, subject_tracking_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Lists history of events in the garden.
+        args:
+            limit: max events to retrieve
+            subject_tracking_id: (Optional) filter by specific subject tracking ID (e.g. '2026-SUJ-ABCD')
+        """
+        internal_subject_id = None
+        if subject_tracking_id:
+            # Resolve tracking ID
+            all_subjects = self.service.list_subjects()
+            target = next((s for s in all_subjects if s.tracking_id == subject_tracking_id), None)
+            if not target:
+                # Return error or empty list? Agent prefers error to know it failed finding
+                return [{"error": f"Subject with tracking ID {subject_tracking_id} not found."}]
+            internal_subject_id = target.id
+            
+        events = self.service.list_events(limit=limit, subject_id=internal_subject_id)
+        
+        # Simplify output for Agent (less noise)
+        summary = []
+        for e in events:
+            summary.append({
+                "date": e["date"],
+                "subject": f"{e['sujet_nom']} ({e['sujet_tracking']})",
+                "action": e["type_geste"],
+                "details": e["data"]
+            })
+        return summary

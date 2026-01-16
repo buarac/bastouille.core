@@ -28,6 +28,7 @@ class CultureAgent:
             "create_subject": self.action_tools.create_subject,
             "log_event": self.action_tools.log_event,
             "list_my_subjects": self.action_tools.list_my_subjects,
+            "list_garden_events": self.action_tools.list_garden_events, # New in v1.5
             "search_garden": self.search_tool.search_garden
         }
 
@@ -87,12 +88,13 @@ USER_QUERY: {user_query}
 
 NOTE IMPORTANTE :
 - Si tu as besoin de vérifier l'existence d'une plante ou d'un sujet, utilise l'outil `search_garden`.
+- Si tu as besoin de connaître l'historique ou les actions passées, utilise `list_garden_events`.
 - Si tu décides d'effectuer une action, génère le bloc JSON ci-dessous.
 - Sinon, réponds simplement en texte naturel.
 
 STYLE DE RÉPONSE :
 - Avant chaque action, explique ta réflexion en commençant par "PENSÉE :".
-- SÉPARATEUR OBLIGATOIRE : Si tu écris une pensée, tu dois SAUTER DEUX LIGNES (\\n\\n) avant d'écrire ta réponse finale.
+- SÉPARATEUR OBLIGATOIRE : Si tu écris une réponse, écris 'RÉPONSE :' avant le texte final.
 - Ne mentionne JAMAIS "j'utilise l'outil" ou le JSON dans la réponse finale.
 - Parle comme un humain expert ("C'est noté", "Action effectuée").
 
@@ -133,20 +135,60 @@ PENSÉE : Je vérifie si...
                 if stream_state == "TOOL_HIDING":
                     continue 
 
-                # Handle Thought vs Message
+                # State Transitions based on START
                 if stream_state == "START":
                     cleaned_buffer = response_buffer.strip()
                     if cleaned_buffer.upper().startswith("PENSÉE"):
                         stream_state = "THOUGHT"
-                        yield json.dumps({"type": "thought_token", "content": chunk}) + "\n"
-                    elif len(cleaned_buffer) > 10: 
+                    elif response_buffer.upper().strip().startswith("RÉPONSE") or "**RÉPONSE" in response_buffer.upper():
                         stream_state = "MESSAGE"
-                        yield json.dumps({"type": "message_token", "content": chunk}) + "\n"
                     else:
-                         yield json.dumps({"type": "message_token", "content": chunk}) + "\n"
+                        # If we have enough content and no thought marker, assume message
+                        if len(cleaned_buffer) > 10:
+                            stream_state = "MESSAGE"
                 
-                elif stream_state == "THOUGHT":
-                    if "\n\n" in chunk:
+                # Process Chunk based on Current State
+                if stream_state == "THOUGHT":
+                    # Check for explicit "RÉPONSE :" marker OR double newline
+                    # Use a sliding window check to catch split markers
+                    # response_buffer ALREADY contains chunk (line 126). 
+                    # We want the window that covers the checking area: end of previous buffer + start of new chunk.
+                    # Safest is just to look at the end of the full buffer.
+                    
+                    window_size = len(chunk) + 25 # Look back a bit further than the chunk
+                    combined_check = response_buffer[-window_size:]
+                    
+                    # Robust Regex Trigger
+                    trigger_match = re.search(r"(?i)(\*\*|#)?\s*R[ÉE]PONSE\s*(\*\*|#)?\s*:", combined_check)
+                    
+                    if trigger_match: 
+                        stream_state = "MESSAGE"
+                        
+                        # CALCULATE SPLIT EXACTLY
+                        match_end_in_window = trigger_match.end()
+                        start_of_chunk_in_window = len(combined_check) - len(chunk)
+                        
+                        # We split relative to the chunk start
+                        split_idx = match_end_in_window - start_of_chunk_in_window
+                            
+                        if split_idx <= 0:
+                            # Marker ended before this chunk started (should have been caught, but maybe latent?)
+                            yield json.dumps({"type": "message_token", "content": chunk}) + "\n"
+                        else:
+                            # Marker ends inside this chunk (or at the end of it)
+                            # Everything before the split point is part of the thought (or the marker itself)
+                            # We yield it as thought so it appears in logs but not in chat
+                            thought_part = chunk[:split_idx]
+                            if thought_part:
+                                yield json.dumps({"type": "thought_token", "content": thought_part}) + "\n"
+                            
+                            
+                            # Everything after is message
+                            if split_idx < len(chunk):
+                                msg_part = chunk[split_idx:]
+                                yield json.dumps({"type": "message_token", "content": msg_part}) + "\n"
+                             
+                    elif "\n\n" in chunk:
                          stream_state = "MESSAGE"
                          parts = chunk.split("\n\n", 1)
                          yield json.dumps({"type": "thought_token", "content": parts[0]}) + "\n"
@@ -157,6 +199,9 @@ PENSÉE : Je vérifie si...
                 
                 elif stream_state == "MESSAGE":
                      yield json.dumps({"type": "message_token", "content": chunk}) + "\n"
+                    
+
+                
 
 
             # End of Stream (for this turn)
@@ -172,7 +217,7 @@ PENSÉE : Je vérifie si...
             tool_output_str = ""
             
             logger.info(f"Turn {current_turn}: Executing {tool_name}")
-            yield json.dumps({"type": "step_start", "tool": tool_name}) + "\n"
+            yield json.dumps({"type": "step_start", "tool": tool_name, "args": tool_args}) + "\n"
             
             step_start_ts = time.time()
             if tool_name in self.tools_map:
@@ -192,7 +237,7 @@ PENSÉE : Je vérifie si...
             full_prompt += f"\nASSISTANT (Interne): {response_buffer}\n" 
             full_prompt += f"SYSTEM: Résultat de l'outil : {tool_output_str}\n"
             full_prompt += "SYSTEM: L'action est terminée. Formule maintenant ta réponse FINALE à l'utilisateur.\n"
-            full_prompt += "IMPORTANT : Commence par 'PENSÉE :' pour expliquer ta conclusion, puis SAUTE DEUX LIGNES (\\n\\n) avant la réponse finale.\n"
+            full_prompt += "IMPORTANT : N'écris PAS de pensée. Écris DIRECTEMENT ta réponse.\n"
             full_prompt += "CONSIGNE STRICTE : Ne mentionne PAS le nom des outils techniques ou des JSON. Parle naturellement."
             
             # Loop next turn...
@@ -202,7 +247,7 @@ PENSÉE : Je vérifie si...
         try:
             await self.traceability.log_interaction(
                 agent_name="Culture",
-                agent_version="v6-stream-true", 
+                agent_version="v1.5-history", 
                 model_name=settings.GEMINI_MODEL_NAME, 
                 input_content=user_query,
                 full_prompt=full_prompt, 
@@ -227,14 +272,55 @@ PENSÉE : Je vérifie si...
 
     def _parse_tool_call(self, text: str) -> Optional[Dict]:
         import re
+        import ast
+        
+        # DEBUG LOGGING
+        logger.info(f"PARSING TOOL RAW: {text}")
+        
         try:
+            # 1. Try code block
             match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", text, re.DOTALL)
             if match:
-                return json.loads(match.group(1))
+                try: 
+                    return json.loads(match.group(1))
+                except:
+                    # Try literal eval for single quotes
+                    try: return ast.literal_eval(match.group(1))
+                    except: pass
+            
+            # 2. Try strict pure JSON or Python Dict
             text_stripped = text.strip()
             if text_stripped.startswith("{") and text_stripped.endswith("}"):
-                if '"tool"' in text_stripped:
-                    return json.loads(text_stripped)
+                if '"tool"' in text_stripped or "'tool'" in text_stripped:
+                    try: return json.loads(text_stripped)
+                    except:
+                        try: return ast.literal_eval(text_stripped)
+                        except: pass
+            
+            # 3. Fallback: Brace Counting (Robust)
+            # Find all start indices of '{'
+            start_indices = [i for i, char in enumerate(text) if char == "{"]
+            
+            for start_index in start_indices:
+                balance = 0
+                for i in range(start_index, len(text)):
+                    char = text[i]
+                    if char == "{":
+                        balance += 1
+                    elif char == "}":
+                        balance -= 1
+                    
+                    if balance == 0:
+                        # Found a balanced block
+                        candidate = text[start_index : i+1]
+                        # Quick check if it looks like a tool call
+                        if '"tool"' in candidate or "'tool'" in candidate:
+                            try: return json.loads(candidate)
+                            except:
+                                try: return ast.literal_eval(candidate)
+                                except: pass
+                        break # Stop extending this block, try next start_index if failed
+            
             return None
         except Exception as e:
             logger.warning(f"Failed to parse tool call JSON: {e}")

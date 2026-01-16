@@ -42,12 +42,18 @@ class ChatRequest(BaseModel):
 @router.post("/culture/chat")
 async def chat_culture(request: ChatRequest):
     """
-    Dialogue avec l'agent Chef de Culture.
+    Dialogue avec l'agent Chef de Culture (Streaming).
+    Retourne un flux SSE (Server-Sent Events) de JSONs.
     """
     try:
         agent = CultureAgent()
-        response = await agent.chat(request.query, request.history)
-        return {"response": response}
+        
+        from fastapi.responses import StreamingResponse
+        # Use chat_stream generator
+        return StreamingResponse(
+            agent.chat_stream(request.query, request.history),
+            media_type="text/event-stream"
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -59,5 +65,5 @@ async def get_botanique_meta():
     """
     return {
         "version": "1.0",
-        "model": "gemini-1.5-flash"
+        "model": "gemini-2.5-flash"
     }

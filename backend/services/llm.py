@@ -10,6 +10,11 @@ class LLMProvider(ABC):
     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> tuple[str, Dict[str, int]]:
         pass
 
+    @abstractmethod
+    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None):
+        """Yields chunks of text"""
+        pass
+
 class GeminiProvider(LLMProvider):
     def __init__(self):
         if not settings.GEMINI_API_KEY:
@@ -24,7 +29,7 @@ class GeminiProvider(LLMProvider):
         if system_prompt:
             full_prompt = f"System Instruction: {system_prompt}\n\nUser Query: {prompt}"
         
-        response = self.model.generate_content(full_prompt)
+        response = await self.model.generate_content_async(full_prompt)
         
         # Extract usage
         usage = {
@@ -39,6 +44,19 @@ class GeminiProvider(LLMProvider):
             usage["total_tokens"] = response.usage_metadata.total_token_count
             
         return response.text, usage
+
+    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None):
+        full_prompt = prompt
+        if system_prompt:
+            full_prompt = f"System Instruction: {system_prompt}\n\nUser Query: {prompt}"
+        
+        # stream=True returns a synchronous iterator or async?
+        # generate_content_async(stream=True) returns an async iterator
+        response = await self.model.generate_content_async(full_prompt, stream=True)
+        
+        async for chunk in response:
+            if chunk.text:
+                yield chunk.text
 
 class OllamaProvider(LLMProvider):
     def __init__(self):
@@ -71,6 +89,10 @@ class OllamaProvider(LLMProvider):
                 return data.get("response", ""), usage
             except Exception as e:
                 raise RuntimeError(f"Ollama call failed: {str(e)}")
+
+    async def generate_stream(self, prompt: str, system_prompt: Optional[str] = None):
+        # Implementation for Ollama Stream if needed later
+        yield "Not implemented"
 
 def get_llm_provider() -> LLMProvider:
     provider = settings.LLM_PROVIDER.lower()

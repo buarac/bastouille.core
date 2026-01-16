@@ -48,8 +48,6 @@ class CultureAgent:
         
         # 1. Build Prompt
         system_prompt = self._build_prompt()
-        
-        # 1b. Inject Context (Varieties)
         varieties_summary = self.persistence.get_all_varieties_summary()
         
         context_block = f"""
@@ -60,7 +58,6 @@ Voici la liste des variétés références dans la base. Tu peux t'en servir pou
 """
         system_prompt += context_block
         
-        # 1c. Safety / Confirmation Logic
         if settings.AGENT_ACTION_CONFIRMATION:
             safety_block = """
 [MODE SÉCURITÉ : ACTIF]
@@ -73,7 +70,6 @@ Si l'utilisateur vient de confirmer, tu peux agir.
 """
             system_prompt += safety_block
         
-        # Format History
         history_text = ""
         if history:
             history_text = "[HISTORIQUE DE CONVERSATION]\n"
@@ -96,6 +92,7 @@ NOTE IMPORTANTE :
 
 STYLE DE RÉPONSE :
 - Avant chaque action, explique ta réflexion en commençant par "PENSÉE :".
+- SÉPARATEUR OBLIGATOIRE : Si tu écris une pensée, tu dois SAUTER DEUX LIGNES (\\n\\n) avant d'écrire ta réponse finale.
 - Ne mentionne JAMAIS "j'utilise l'outil" ou le JSON dans la réponse finale.
 - Parle comme un humain expert ("C'est noté", "Action effectuée").
 
@@ -108,12 +105,7 @@ PENSÉE : Je vérifie si...
 ```
 """
         
-        # Track Usage
         total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
-
-        # 3. LLM Generation
-        response_text, usage = await self.llm.generate(full_prompt)
-        self._accumulate_usage(total_usage, usage)
 
         # 4. Tool Execution Logic (ReAct Loop)
         max_turns = 5
@@ -122,86 +114,57 @@ PENSÉE : Je vérifie si...
         while current_turn < max_turns:
             current_turn += 1
             
-            # 4a. Parse Tool Call
-            tool_call = self._parse_tool_call(response_text)
+            # Streaming Generation
+            response_buffer = ""
+            stream_state = "START" 
             
-            # Helper to extract and clean thought
-            def extract_thought(text):
-                thought = ""
-                # Remove Markdown json blocks to find text
-                clean = re.sub(r"```(?:\w+)?\s*\{.*?\}\s*```", "", text, flags=re.DOTALL)
-                # Remove raw json
-                clean = re.sub(r"\{.*\}", "", clean, flags=re.DOTALL)
+            # Use generate_stream for token-by-token output
+            async for chunk in self.llm.generate_stream(full_prompt):
+                if not chunk: continue
+                response_buffer += chunk
                 
-                if "PENSÉE :" in clean:
-                    parts = clean.split("PENSÉE :")
-                    if len(parts) > 1:
-                        thought = parts[1].strip()
-                elif "PENSÉE:" in clean: # Tolerate missing space
-                    parts = clean.split("PENSÉE:")
-                    if len(parts) > 1:
-                        thought = parts[1].strip()
-                elif clean.strip():
-                    thought = clean.strip()
-                return thought
+                # Logic to decide what to show
+                
+                # Check entry to Tool Hiding
+                if "```json" in response_buffer and stream_state != "TOOL_HIDING":
+                    stream_state = "TOOL_HIDING"
+                    continue
+                
+                if stream_state == "TOOL_HIDING":
+                    continue 
 
+                # Handle Thought vs Message
+                if stream_state == "START":
+                    cleaned_buffer = response_buffer.strip()
+                    if cleaned_buffer.upper().startswith("PENSÉE"):
+                        stream_state = "THOUGHT"
+                        yield json.dumps({"type": "thought_token", "content": chunk}) + "\n"
+                    elif len(cleaned_buffer) > 10: 
+                        stream_state = "MESSAGE"
+                        yield json.dumps({"type": "message_token", "content": chunk}) + "\n"
+                    else:
+                         yield json.dumps({"type": "message_token", "content": chunk}) + "\n"
+                
+                elif stream_state == "THOUGHT":
+                    if "\n\n" in chunk:
+                         stream_state = "MESSAGE"
+                         parts = chunk.split("\n\n", 1)
+                         yield json.dumps({"type": "thought_token", "content": parts[0]}) + "\n"
+                         if len(parts) > 1:
+                            yield json.dumps({"type": "message_token", "content": parts[1]}) + "\n"
+                    else:
+                        yield json.dumps({"type": "thought_token", "content": chunk}) + "\n"
+                
+                elif stream_state == "MESSAGE":
+                     yield json.dumps({"type": "message_token", "content": chunk}) + "\n"
+
+
+            # End of Stream (for this turn)
+            tool_call = self._parse_tool_call(response_buffer)
+            
             if not tool_call:
-                # Check for final thought before message
-                thought = extract_thought(response_text)
-                final_msg = response_text
-                
-                # If we found a distinct thought block, try to separate it from the real message?
-                # Usually final response doesn't need "PENSÉE". 
-                # But if the model followed instructions, it might have put it.
-                if "PENSÉE" in response_text:
-                    # Remove PENSÉE prefix from message
-                    final_msg = re.sub(r"PENSÉE\s?:.*?(\n|$)", "", final_msg, flags=re.IGNORECASE|re.DOTALL).strip()
-                    # Or simpler: if we extracted thought, we should remove it from final_msg?
-                    # The issue is "response_text" contains both thought + message if no tool is used.
-                    # But often if no tool is used, the WHOLE thing is just text answer.
-                    # If model explicitly said "PENSEE: xyz", then "xyz" is the thought.
-                    # Is there a "RÉPONSE:" part? No.
-                    # So if no tool, treating the whole text as "thought" and then yielding empty message? No.
-                    
-                    # Heuristic: If "PENSÉE:" is at the start, and there is no clear separation?
-                    # Actually, if no tool is used, the model usually just talks.
-                    # BUT we enforced "Avant chaque action... explain...".
-                    # If NO action, maybe it doesn't use PENSEE?
-                    # "L'utilisateur me demande qui je suis. Je dois me présenter... Bonjour ! Je suis..."
-                    # It seems the model outputted the thought AND the answer in one block.
-                    # We need to split it.
-                    
-                    # Regex to split PENSEE .... \n\n Actual Answer?
-                    # Let's try to assume double newline separates thought from answer if PENSEE is present.
-                    split_parts = re.split(r"\n\s*\n", response_text, maxsplit=1)
-                    if len(split_parts) == 2 and "PENSÉE" in split_parts[0]:
-                         thought = split_parts[0].replace("PENSÉE :", "").replace("PENSÉE:", "").strip()
-                         final_msg = split_parts[1].strip()
-                    
-                # Clean Final Response of JSON artifacts
-                if "```" in final_msg:
-                     clean_text = re.sub(r"```(?:\w+)?\s*\{.*?\}\s*```", "", final_msg, flags=re.DOTALL)
-                     if clean_text.strip():
-                         final_msg = clean_text.strip()
-                
-                if thought and thought != final_msg and "PENSÉE" in response_text:
-                     yield json.dumps({"type": "thought", "content": thought}) + "\n"
-
-                yield json.dumps({"type": "message", "content": final_msg}) + "\n"
+                logger.info(f"Turn {current_turn}: Response (No Tool) -> {len(response_buffer)} chars")
                 break
-            
-            # Extract Thought before JSON
-            thought_text = ""
-            match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", response_text, re.DOTALL)
-            payload_start_idx = match.start() if match else response_text.find("{")
-            
-            if payload_start_idx > 0:
-                raw_thought = response_text[:payload_start_idx].strip()
-                # Clean prefix
-                thought_text = re.sub(r"^PENSÉE\s?:", "", raw_thought, flags=re.IGNORECASE).strip()
-            
-            if thought_text:
-                 yield json.dumps({"type": "thought", "content": thought_text}) + "\n"
             
             # 4b. Execute Tool
             tool_name = tool_call.get("tool")
@@ -209,8 +172,6 @@ PENSÉE : Je vérifie si...
             tool_output_str = ""
             
             logger.info(f"Turn {current_turn}: Executing {tool_name}")
-            
-            # YIELD STEP START
             yield json.dumps({"type": "step_start", "tool": tool_name}) + "\n"
             
             step_start_ts = time.time()
@@ -225,185 +186,27 @@ PENSÉE : Je vérifie si...
             
             duration_ms = int((time.time() - step_start_ts) * 1000)
             
-            # YIELD STEP END
             yield json.dumps({"type": "step_end", "tool": tool_name, "duration": duration_ms, "result": tool_output_str}) + "\n"
             
             # 4c. Re-Prompt with Tool Output
-            full_prompt += f"\nASSISTANT (Interne): Action {tool_name} exécutée.\n"
+            full_prompt += f"\nASSISTANT (Interne): {response_buffer}\n" 
             full_prompt += f"SYSTEM: Résultat de l'outil : {tool_output_str}\n"
             full_prompt += "SYSTEM: L'action est terminée. Formule maintenant ta réponse FINALE à l'utilisateur.\n"
-            full_prompt += "CONSIGNE STRICTE : Ne mentionne PAS le nom des outils techniques ou des JSON. Parle naturellement (ex: 'C'est noté', 'C'est fait')."
+            full_prompt += "IMPORTANT : Commence par 'PENSÉE :' pour expliquer ta conclusion, puis SAUTE DEUX LIGNES (\\n\\n) avant la réponse finale.\n"
+            full_prompt += "CONSIGNE STRICTE : Ne mentionne PAS le nom des outils techniques ou des JSON. Parle naturellement."
             
-            # Generate next step
-            response_text, usage_re = await self.llm.generate(full_prompt)
-            self._accumulate_usage(total_usage, usage_re)
+            # Loop next turn...
             
-            # Loop continues...
-            
-        # LOGGING TRACEABILITY (Background)
-        # Note: In generator, we can't await traceability easily without blocking yield?
-        # Actually we are async, so we can await.
-        duration_ms = int((time.time() - start_time) * 1000)
-        try:
-            await self.traceability.log_interaction(
-                agent_name="Culture",
-                agent_version="v6-stream", 
-                model_name=settings.GEMINI_MODEL_NAME, 
-                input_content=user_query,
-                full_prompt=full_prompt, 
-                response_content=response_text, # Approx
-                input_tokens=total_usage["prompt_tokens"],
-                output_tokens=total_usage["completion_tokens"],
-                duration_ms=duration_ms
-            )
-        except Exception as e:
-            logger.error(f"Failed to log trace: {e}")
-
-
-    async def chat(self, user_query: str, history: List[Dict[str, str]] = []) -> str:
-        start_time = time.time()
-        
-        # 1. Build Prompt
-        system_prompt = self._build_prompt()
-        
-        # 1b. Inject Context (Varieties)
-        varieties_summary = self.persistence.get_all_varieties_summary()
-        
-        context_block = f"""
-[CONTEXTE BOTANIQUE (LISTE DES VARIÉTÉS)]
-Voici la liste des variétés références dans la base. Tu peux t'en servir pour suggérer des corrections ou autocompléter les noms.
-{varieties_summary}
-[/CONTEXTE BOTANIQUE]
-"""
-        system_prompt += context_block
-        
-        # 1c. Safety / Confirmation Logic
-        if settings.AGENT_ACTION_CONFIRMATION:
-            safety_block = """
-[MODE SÉCURITÉ : ACTIF]
-ATTENTION : Tu as l'INTERDICTION de toucher à la base de données (outils créations/logs) sans validation explicite.
-Si l'utilisateur te demande une action (planter, noter, créer...) :
-1. Reformule d'abord ce que tu comptes faire "Je vais créer X...", "Je note l'événement Y".
-2. Attends la confirmation de l'utilisateur ("Oui", "Go", "C'est bon").
-3. SEULEMENT ALORS, génère le JSON de l'outil.
-Si l'utilisateur vient de confirmer, tu peux agir.
-"""
-            system_prompt += safety_block
-        
-        # Format History
-        history_text = ""
-        if history:
-            history_text = "[HISTORIQUE DE CONVERSATION]\n"
-            for msg in history:
-                role = msg.get("role", "user").upper()
-                content = msg.get("content", "")
-                history_text += f"{role}: {content}\n"
-            history_text += "[/HISTORIQUE DE CONVERSATION]\n"
-        
-        full_prompt = f"""{system_prompt}
-
-{history_text}
-
-USER_QUERY: {user_query}
-
-NOTE IMPORTANTE :
-- Si tu as besoin de vérifier l'existence d'une plante ou d'un sujet, utilise l'outil `search_garden`.
-- Si tu décides d'effectuer une action, génère le bloc JSON ci-dessous.
-- Sinon, réponds simplement en texte naturel.
-
-STYLE DE RÉPONSE :
-- Avant chaque action, explique ta réflexion en commençant par "PENSÉE :".
-- Ne mentionne JAMAIS "j'utilise l'outil" ou le JSON dans la réponse finale.
-- Parle comme un humain expert ("C'est noté", "Action effectuée").
-
-```json
-PENSÉE : Je vérifie si...
-{{
-  "tool": "nom_de_l_outil",
-  "args": {{ ... }}
-}}
-```
-"""
-        
-        # Track Usage
-        total_usage = {"prompt_tokens": 0, "completion_tokens": 0}
-
-        # 3. LLM Generation
-        response_text, usage = await self.llm.generate(full_prompt)
-        self._accumulate_usage(total_usage, usage)
-
-        # 4. Tool Execution Logic (ReAct Loop)
-        max_turns = 5
-        current_turn = 0
-        
-        while current_turn < max_turns:
-            current_turn += 1
-            
-            # 4a. Parse Tool Call
-            tool_call = self._parse_tool_call(response_text)
-            
-            if not tool_call:
-                # No tool call, just return text (Final Answer)
-                final_response = response_text
-                break
-            
-            # 4b. Execute Tool
-            tool_name = tool_call.get("tool")
-            tool_args = tool_call.get("args")
-            tool_output_str = ""
-            
-            logger.info(f"Turn {current_turn}: Executing {tool_name}")
-            
-            if tool_name in self.tools_map:
-                try:
-                    result = self.tools_map[tool_name](**tool_args)
-                    tool_output_str = json.dumps(result, ensure_ascii=False)
-                except Exception as e:
-                    tool_output_str = f"Error: {e}"
-            else:
-                tool_output_str = f"Error: Tool {tool_name} not found."
-            
-            # 4c. Re-Prompt with Tool Output
-            # We append the assistant's action and the tool output to the history simulation
-            # Note: We must strip the ```json block from the assistant's visible memory if possible?
-            # Actually, standard ReAct keeps it to show "I decided to do this, here is result".
-            # BUT we want to HIDE it from the user at the END.
-            
-            # Append context
-            # We simulate that the assistant ALREADY said this internal thought.
-            # But to prevent it from repeating it or thinking it's the "answer", we guide the next generation.
-            
-            full_prompt += f"\nASSISTANT (Interne): Action {tool_name} exécutée.\n"
-            full_prompt += f"SYSTEM: Résultat de l'outil : {tool_output_str}\n"
-            full_prompt += "SYSTEM: L'action est terminée. Formule maintenant ta réponse FINALE à l'utilisateur.\n"
-            full_prompt += "CONSIGNE STRICTE : Ne mentionne PAS le nom des outils techniques ou des JSON. Parle naturellement (ex: 'C'est noté', 'C'est fait')."
-            
-            # Generate next step
-            response_text, usage_re = await self.llm.generate(full_prompt)
-            self._accumulate_usage(total_usage, usage_re)
-            
-            # Loop continues to check if new response is a tool call or text...
-            
-        final_response = response_text
-        
-        # Clean Final Response: Remove any leftover JSON blocks (e.g. if tool detected but max turns hit, or parse fail)
-        if "```" in final_response:
-             import re
-             # Remove code blocks that look like tool calls or generic json
-             clean_text = re.sub(r"```(?:\w+)?\s*\{.*?\}\s*```", "", final_response, flags=re.DOTALL)
-             if clean_text.strip():
-                 final_response = clean_text.strip()
-        
         # LOGGING TRACEABILITY
         duration_ms = int((time.time() - start_time) * 1000)
         try:
             await self.traceability.log_interaction(
                 agent_name="Culture",
-                agent_version="v6", 
+                agent_version="v6-stream-true", 
                 model_name=settings.GEMINI_MODEL_NAME, 
                 input_content=user_query,
                 full_prompt=full_prompt, 
-                response_content=final_response,
+                response_content="[Streamed Content]",
                 input_tokens=total_usage["prompt_tokens"],
                 output_tokens=total_usage["completion_tokens"],
                 duration_ms=duration_ms
@@ -411,7 +214,11 @@ PENSÉE : Je vérifie si...
         except Exception as e:
             logger.error(f"Failed to log trace: {e}")
 
-        return final_response
+        # Done
+        yield ""
+
+    async def chat(self, user_query: str, history: List[Dict[str, str]] = []) -> str:
+        return "Chat method deprecated for streaming usage."
 
     def _accumulate_usage(self, total: Dict, new_usage: Dict):
         total["prompt_tokens"] += new_usage.get("prompt_tokens", 0)
@@ -419,27 +226,15 @@ PENSÉE : Je vérifie si...
 
 
     def _parse_tool_call(self, text: str) -> Optional[Dict]:
-        """
-        Extracts JSON block from text.
-        Supports:
-        1. Markdown fences: ```json { ... } ```
-        2. Raw JSON if text starts with { and contains "tool"
-        """
         import re
         try:
-            # 1. Try Markdown Fence (Best practice)
             match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", text, re.DOTALL)
             if match:
                 return json.loads(match.group(1))
-            
-            # 2. Try Raw JSON (Fallback)
-            # If text looks like a JSON object { ... }
             text_stripped = text.strip()
             if text_stripped.startswith("{") and text_stripped.endswith("}"):
-                # Basic check to avoid parsing random sentences starting with {
                 if '"tool"' in text_stripped:
                     return json.loads(text_stripped)
-            
             return None
         except Exception as e:
             logger.warning(f"Failed to parse tool call JSON: {e}")

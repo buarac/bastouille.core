@@ -110,6 +110,19 @@ export default function AgentChat() {
                                     steps: [...(msg.steps || []), { content: data.content, type: "thought" }]
                                 };
                             }
+                            else if (data.type === "thought_token") {
+                                const steps = [...(msg.steps || [])];
+                                const lastStep = steps[steps.length - 1];
+                                if (lastStep && lastStep.type === "thought") {
+                                    steps[steps.length - 1] = { ...lastStep, content: lastStep.content + data.content };
+                                    return { ...msg, steps };
+                                } else {
+                                    return { ...msg, steps: [...steps, { content: data.content, type: "thought" }] };
+                                }
+                            }
+                            else if (data.type === "message_token") {
+                                return { ...msg, content: (msg.content || "") + data.content };
+                            }
                             else if (data.type === "step_end") {
                                 // Find step and update it
                                 const newSteps = [...(msg.steps || [])];

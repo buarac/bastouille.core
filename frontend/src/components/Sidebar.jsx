@@ -1,4 +1,4 @@
-import { Leaf, Activity, Bot, Calendar, LayoutList, Sprout, ClipboardList } from 'lucide-react';
+import { Leaf, Activity, Bot, Calendar, LayoutList, Sprout, ClipboardList, Cpu } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -17,12 +17,13 @@ const Sidebar = () => {
             items: [
                 { name: 'Botanique', path: '/agent-botanique', icon: Leaf },
                 { name: 'Chef de Culture', path: '/chat', icon: Bot },
+                { name: 'Chef V2 (Natif)', path: '/bastouille-chef', icon: Cpu },
             ]
         },
         {
             title: "Traçabilité",
             items: [
-                { name: 'Appels IA', path: '/admin/activity', icon: Activity },
+                { name: 'Appels IA', path: '/admin/llm-logs', icon: Activity },
                 // Keeping 'Gestes' (previously existed) or removing? User didn't explicitly say remove 'Gestes' but "Refacteur les menus...". 
                 // However, "Gestes" was in "Admin". 
                 // The prompt says "Section Tracabilités: Appels IA -> renvoies vers l'écran Activité IA".

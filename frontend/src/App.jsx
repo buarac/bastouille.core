@@ -17,8 +17,8 @@ function App() {
       <Routes>
         <Route path="/" element={<MainLayout />}>
           {/* Redirection par défaut vers la liste des plants */}
-          <Route index element={<Navigate to="/plants" replace />} />
-          <Route path="plants" element={<PlantsList />} />
+          <Route index element={<Navigate to="/fiches" replace />} />
+          <Route path="fiches" element={<PlantsList />} />
           <Route path="agent-botanique" element={<BotaniqueSearch />} />
           <Route path="sujets" element={<Sujets />} />
           <Route path="evenements" element={<Evenements />} />

@@ -1,6 +1,6 @@
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import List, Optional, Dict, Any
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
 
 class FicheBotaniqueDB(BaseModel):
@@ -9,14 +9,12 @@ class FicheBotaniqueDB(BaseModel):
     variete: str
     espece: str
     nom: str
-    created_at: datetime
-    updated_at: datetime
-    # embedding_nom is hidden from standard response unless needed, usually not returned to frontend
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
     embedding_nom: Optional[List[float]] = None
     similarity: Optional[float] = None
-
-    class Config:
-        from_attributes = True
+    
+    model_config = ConfigDict(from_attributes=True)
 
     @field_validator("embedding_nom", mode="before")
     @classmethod
@@ -28,3 +26,14 @@ class FicheBotaniqueDB(BaseModel):
             except:
                 return []
         return v
+
+class FicheBotaniqueSummary(BaseModel):
+    id: UUID
+    nom: str
+    variete: Optional[str] = None
+    espece: Optional[str] = None
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+    similarity: Optional[float] = None
+
+    model_config = ConfigDict(from_attributes=True)

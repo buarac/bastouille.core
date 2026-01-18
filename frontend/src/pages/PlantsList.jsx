@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Sprout, CloudRain, ShoppingBasket, Sun, Droplets, Ruler, Palette, Shapes, Wind, Leaf, Tag, Utensils, Save, Trash2, ArrowLeft, Bookmark, Globe, Feather, MoveHorizontal, ArrowLeftRight, RefreshCcw } from 'lucide-react';
 import { fetchBotaniqueInfo, savePlant, getSavedPlants, deletePlant, updatePlant } from '../services/api';
+import FicheDetail from '../components/FicheDetail';
 
 // --- Helper Components Definition (Duplicated for isolation) ---
 
@@ -26,7 +27,6 @@ const FeatureCard = ({ icon: Icon, label, value, fullWidth }) => {
 
 const CalendarGrid = ({ title, months, icon: Icon, colorClass }) => {
     const allMonths = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-    const fullMonths = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
     return (
         <div className="space-y-3">
@@ -37,11 +37,26 @@ const CalendarGrid = ({ title, months, icon: Icon, colorClass }) => {
 
             <div className="flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5">
                 {allMonths.map((m, index) => {
-                    const isMonthActive = (months || []).some(activeMonth => activeMonth.toLowerCase().startsWith(fullMonths[index].toLowerCase().slice(0, 3)));
+                    // Handle both Integers (1-based) and Strings
+                    // index is 0-based. So Jan = 0 (chk 1), Feb = 1 (chk 2).
+                    const monthIndex = index + 1;
+
+                    let isActive = false;
+                    if (Array.isArray(months)) {
+                        isActive = months.some(val => {
+                            if (typeof val === 'number') return val === monthIndex;
+                            if (typeof val === 'string') {
+                                // Fallback for old string data "Janvier" etc
+                                const fullMonths = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+                                return val.toLowerCase().startsWith(fullMonths[index].slice(0, 3));
+                            }
+                            return false;
+                        });
+                    }
 
                     return (
                         <div key={index} className="flex flex-col items-center gap-1 group relative">
-                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-medium transition-all duration-300 ${isMonthActive
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-medium transition-all duration-300 ${isActive
                                 ? `${colorClass} shadow-[0_0_10px_rgba(255,255,255,0.2)] scale-110`
                                 : 'text-slate-600 bg-white/5'
                                 }`}>
@@ -116,62 +131,74 @@ const PlantCard = ({ plant, onClick, onDelete, onUpdate, isOutdated }) => (
 
 // --- Main Component ---
 
-const PlantsList = () => {
-    const [data, setData] = useState(null); // Used to show Detail View
+// --- Main Component ---
+
+const FichesList = () => {
+    const [fiches, setFiches] = useState([]);
+    const [data, setData] = useState(null); // Detail View Data (Full Fiche)
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [savedPlants, setSavedPlants] = useState([]);
     const [error, setError] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
-    const [existingPlantId, setExistingPlantId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
 
     // Initial load
     useEffect(() => {
-        loadSavedPlants();
+        loadFiches();
     }, []);
 
-    const loadSavedPlants = async () => {
-        try {
-            const plants = await getSavedPlants();
-            setSavedPlants(plants || []);
-        } catch (err) {
-            console.error("Failed to load saved plants", err);
-        }
-    };
-
-    // Note: Update Logic requires fetching info from AI.
-    // Since we removed search bar, `handleRefreshPlant` needs to perform `fetchBotaniqueInfo`.
-    // We can keep a hidden query or simple function.
-    const handleRefreshPlant = async (plant, e) => {
-        e.stopPropagation();
+    const loadFiches = async () => {
         setLoading(true);
         try {
-            const name = plant.nom_commun;
-            const variety = plant.variete;
-            const searchQuery = variety ? `${name} ${variety}` : name;
-
-            // Fetch fresh info
-            const result = await fetchBotaniqueInfo(searchQuery);
-            const resultData = result.data;
-
-            // Now show details and prepare ONLY for update (as it already exists)
-            setData(resultData);
-            setExistingPlantId(plant.id);
+            const res = await fetch(`http://${window.location.hostname}:8000/botanique/fiches/summary?limit=100`);
+            if (!res.ok) throw new Error("Erreur chargement fiches");
+            const list = await res.json();
+            setFiches(list || []);
         } catch (err) {
-            setError("Erreur mise à jour: " + err.message);
+            console.error("Failed to load fiches", err);
+            setError("Impossible de charger la liste des fiches.");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSave = async () => {
-        if (!data || !existingPlantId) return; // Only Update allowed here mostly, unless we add "Create New"? User said "List Only".
+    const handleSelectFiche = async (id) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`http://${window.location.hostname}:8000/botanique/fiches/${id}`);
+            if (!res.ok) throw new Error("Erreur chargement fiche");
+            const fiche = await res.json();
+            // Wrap in expected structure if needed, or adapt UI.
+            // DB returns FicheBotaniqueDB: { id, data: {...}, nom, ... }
+            // UI expects 'data' to be the content of the fiche (identite, portrait...)
+            // So we set data = fiche.data (plus top level id injection if needed)
+            setData({ ...fiche.data, id: fiche.id });
+            setEditingId(fiche.id);
+        } catch (err) {
+            setError("Impossible de charger le détail de la fiche.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpdate = async () => {
+        if (!data || !editingId) return;
         setSaving(true);
         try {
-            await updatePlant(existingPlantId, data);
-            await loadSavedPlants();
-            setData(null); // Close details after save
-            setExistingPlantId(null);
+            // Re-wrap to FichePlant structure ? 
+            // DB expects FichePlant. data from state IS FichePlant structure logic.
+            const res = await fetch(`http://${window.location.hostname}:8000/botanique/fiches/${editingId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+
+            if (!res.ok) throw new Error("Erreur sauvegarde");
+
+            await loadFiches();
+            setData(null);
+            setEditingId(null);
         } catch (err) {
             console.error(err);
             setError(err.message || "Erreur lors de la sauvegarde.");
@@ -180,56 +207,21 @@ const PlantsList = () => {
         }
     };
 
-    const handleDelete = async (id, e) => {
+    const handleRefreshSmart = async (e, fiche) => {
         e.stopPropagation();
-        if (!window.confirm("Supprimer cette plante ?")) return;
-        try {
-            await deletePlant(id);
-            setSavedPlants(prev => prev.filter(p => p.id !== id));
-            if (data && existingPlantId === id) {
-                setData(null); // Close detail if deleted
-            }
-        } catch (err) {
-            console.error("Deletion failed", err);
-        }
+        alert("La mise à jour IA n'est pas encore câblée sur ce nouvel écran.");
     };
 
-    const handleSelectPlant = async (plantId) => {
-        setLoading(true);
-        try {
-            const response = await fetch(`/api/botanique/plantes/${plantId}`);
-            if (!response.ok) throw new Error("Erreur chargement");
-            const plant = await response.json();
-            setData(plant.data);
-            setExistingPlantId(plant.id); // Mark as editing this ID
-        } catch (err) {
-            setError("Impossible de charger la plante.");
-        } finally {
-            setLoading(false);
-        }
+    const handleDelete = async (id, e) => {
+        e.stopPropagation();
+        alert("La suppression n'est pas encore implémentée sur l'API.");
     };
 
     const closeDetail = () => {
         setData(null);
-        setExistingPlantId(null);
+        setEditingId(null);
         setError(null);
     };
-
-    // Helper to group plants
-    const getGroupedPlants = () => {
-        const groups = {};
-        if (!savedPlants) return groups;
-        savedPlants.forEach(plant => {
-            const cat = plant.categorie || 'Autres';
-            const type = plant.cycle_vie_type || '';
-            const key = type ? `${cat} • ${type}` : cat;
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(plant);
-        });
-        return groups;
-    };
-
-    const groupedPlants = getGroupedPlants();
 
     return (
         <div className="space-y-8 animate-fade-in text-white/90">
@@ -241,9 +233,9 @@ const PlantsList = () => {
 
             <header className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-3xl font-light tracking-wide text-white">Mes Variétés</h2>
+                    <h2 className="text-3xl font-light tracking-wide text-white">Mes Fiches</h2>
                     <p className="text-slate-300 font-light mt-2">
-                        Référentiel de vos variétés cultivées.
+                        Référentiel botanique (Sauvegardé en Base).
                     </p>
                 </div>
             </header>
@@ -255,75 +247,47 @@ const PlantsList = () => {
             )}
 
             {!data ? (
-                /* Saved Plants List */
+                /* Fiche List */
                 <div className="space-y-6">
                     <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                        <h3 className="text-xl font-light text-opal">Inventaire</h3>
+                        <h3 className="text-xl font-light text-opal">Inventaire ({fiches.length})</h3>
                         <div className="flex bg-white/5 rounded-lg p-1 border border-white/10">
                             <button
-                                onClick={() => setViewMode('grid')}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${viewMode === 'grid' ? 'bg-opal/20 text-opal shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                onClick={() => loadFiches()}
+                                className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white flex items-center gap-2"
                             >
-                                <Shapes size={14} /> Grille
-                            </button>
-                            <button
-                                onClick={() => setViewMode('grouped')}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${viewMode === 'grouped' ? 'bg-opal/20 text-opal shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
-                            >
-                                <Tag size={14} /> Groupé
+                                <RefreshCcw size={14} /> Actualiser
                             </button>
                         </div>
                     </div>
 
-                    {savedPlants.length === 0 ? (
+                    {fiches.length === 0 ? (
                         <div className="text-center py-12 text-slate-500 italic font-light bg-white/5 rounded-2xl border border-white/5 border-dashed">
-                            Aucune plante définie. Utilisez l'Agent Botanique pour en ajouter.
+                            Aucune fiche trouvée. Créez-en une via l'Agent Botanique.
                         </div>
                     ) : (
-                        <>
-                            {viewMode === 'grid' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {savedPlants.map((plant) => (
-                                        <PlantCard
-                                            key={plant.id}
-                                            plant={plant}
-                                            onClick={() => handleSelectPlant(plant.id)}
-                                            onDelete={handleDelete}
-                                            onUpdate={handleRefreshPlant}
-                                            isOutdated={plant.needs_update}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="space-y-8">
-                                    {Object.entries(groupedPlants).sort().map(([groupTitle, plants]) => (
-                                        <div key={groupTitle} className="space-y-3">
-                                            <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 pl-2">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-opal"></div>
-                                                {groupTitle}
-                                                <span className="text-xs font-normal opacity-50">({plants.length})</span>
-                                            </h4>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                {plants.map((plant) => (
-                                                    <PlantCard
-                                                        key={plant.id}
-                                                        plant={plant}
-                                                        onClick={() => handleSelectPlant(plant.id)}
-                                                        onDelete={handleDelete}
-                                                        onUpdate={handleRefreshPlant}
-                                                        isOutdated={plant.needs_update}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {fiches.map((fiche) => (
+                                <PlantCard
+                                    key={fiche.id}
+                                    plant={{
+                                        id: fiche.id,
+                                        nom_commun: fiche.nom,
+                                        variete: fiche.variete,
+                                        espece: fiche.espece
+                                        // categorie/type missing for badge, optional
+                                    }}
+                                    onClick={() => handleSelectFiche(fiche.id)}
+                                    onDelete={(e) => handleDelete(fiche.id, e)}
+                                    onUpdate={(e) => handleRefreshSmart(e, fiche)}
+                                    isOutdated={false}
+                                />
+                            ))}
+                        </div>
                     )}
                 </div>
             ) : (
-                /* Detail View (Simplified for Reference Viewing) */
+                /* Detail View */
                 <div className="space-y-6 animate-slide-up">
                     <button
                         onClick={closeDetail}
@@ -332,80 +296,23 @@ const PlantsList = () => {
                         <ArrowLeft size={16} /> Retour à la liste
                     </button>
 
-                    {/* Carte Identité */}
-                    <div className="glass p-0 rounded-2xl relative overflow-hidden bg-gradient-to-br from-white/10 to-transparent">
-                        <div className="absolute -right-10 -bottom-10 opacity-5 pointer-events-none">
-                            <Leaf size={300} strokeWidth={0.5} />
-                        </div>
-                        {/* Save/Update Button */}
-                        <div className="absolute top-6 right-6 flex gap-2 z-20">
+                    <FicheDetail
+                        data={data}
+                        headerActions={
                             <button
-                                onClick={handleSave}
+                                onClick={handleUpdate}
                                 disabled={saving}
                                 className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors backdrop-blur-md border bg-blue-500/20 text-blue-100 border-blue-500/30 hover:bg-blue-500/30"
                             >
                                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                                 Mettre à jour
                             </button>
-                        </div>
-
-                        <div className="p-8 pb-4 relative z-10">
-                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mr-4">
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Badge text={data.cycle_vie.type} color="bg-indigo-500/30 text-indigo-100 border-indigo-400/20" icon={Sun} />
-                                        <Badge text={data.categorisation.categorie} color="bg-teal-500/30 text-teal-100 border-teal-400/20" icon={Tag} />
-                                    </div>
-                                    <h1 className="text-5xl font-extralight text-white tracking-tight flex flex-wrap items-baseline gap-3">
-                                        {data.taxonomie.variete ? (
-                                            <>
-                                                {data.taxonomie.variete}
-                                                <span className="text-2xl text-opal/80 font-thin italic">
-                                                    {data.taxonomie.nom_commun}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            data.taxonomie.nom_commun
-                                        )}
-                                    </h1>
-                                    <h2 className="text-lg text-slate-400 font-mono italic">
-                                        {data.taxonomie.genre} {data.taxonomie.espece}
-                                    </h2>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="h-1 w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Carte Culture */}
-                        <div className="glass p-6 rounded-2xl space-y-6 h-full flex flex-col">
-                            <h3 className="text-sm font-medium text-opal border-b border-white/10 pb-2 tracking-wider uppercase flex items-center gap-2">
-                                <Sun size={16} /> Recommandations de Culture
-                            </h3>
-                            <div className="space-y-8 pt-2 flex-grow">
-                                <CalendarGrid title="Semis (Abri)" months={data.calendrier.semis_sous_abri} icon={Sprout} colorClass="bg-blue-500 text-blue-100" />
-                                <CalendarGrid title="Semis (Pleine Terre)" months={data.calendrier.semis_pleine_terre} icon={CloudRain} colorClass="bg-emerald-500 text-emerald-100" />
-                                <CalendarGrid title="Récolte" months={data.calendrier.recolte} icon={ShoppingBasket} colorClass="bg-orange-500 text-orange-100" />
-                            </div>
-                        </div>
-
-                        {/* Carte Caractéristiques */}
-                        <div className="glass p-6 rounded-2xl space-y-6 h-full">
-                            <h3 className="text-sm font-medium text-opal border-b border-white/10 pb-2 tracking-wider uppercase flex items-center gap-2">
-                                <Droplets size={16} /> Caractéristiques
-                            </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FeatureCard icon={Utensils} label="Saveur" value={data.caracteristiques.saveur} />
-                                <FeatureCard icon={Feather} label="Texture" value={data.caracteristiques.texture} />
-                                <FeatureCard icon={Ruler} label="Calibre" value={data.caracteristiques.calibre} />
-                            </div>
-                        </div>
-                    </div>
+                        }
+                    />
                 </div>
             )}
         </div>
     );
 };
 
-export default PlantsList;
+export default FichesList;

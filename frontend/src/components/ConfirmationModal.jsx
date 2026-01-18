@@ -31,21 +31,23 @@ export default function ConfirmationModal({ isOpen, onClose, onConfirm, title, m
                 </div>
 
                 <div className="mt-6 flex justify-end gap-3">
-                    <button
-                        type="button"
-                        className="inline-flex justify-center rounded-lg border border-white/10 bg-[#0f172a] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition-colors"
-                        onClick={onClose}
-                    >
-                        {cancelText}
-                    </button>
+                    {cancelText && (
+                        <button
+                            type="button"
+                            className="inline-flex justify-center rounded-lg border border-white/10 bg-[#0f172a] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition-colors"
+                            onClick={onClose}
+                        >
+                            {cancelText}
+                        </button>
+                    )}
                     <button
                         type="button"
                         className={`inline-flex justify-center rounded-lg border border-transparent px-4 py-2 text-sm font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition-colors ${isDanger
-                                ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
-                                : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:ring-indigo-500'
+                            ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
+                            : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:ring-indigo-500'
                             }`}
                         onClick={() => {
-                            onConfirm();
+                            if (onConfirm) onConfirm();
                             onClose();
                         }}
                     >

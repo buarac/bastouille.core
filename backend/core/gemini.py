@@ -41,7 +41,8 @@ class GeminiClient:
                              config: Optional[types.GenerateContentConfig] = None,
                               agent_name: str = "Unknown",
                               trace_id: Optional[str] = None,
-                              conversation_id: Optional[str] = None) -> types.GenerateContentResponse:
+                              conversation_id: Optional[str] = None,
+                              model: Optional[str] = None) -> types.GenerateContentResponse:
         """
         Wrapper for generate_content with automatic logging to llm_logs.
         """
@@ -50,6 +51,9 @@ class GeminiClient:
         response_payload = None
         input_tokens = 0
         output_tokens = 0
+        
+        # Determine effective model
+        effective_model = model or self.model_name
         
         try:
             # Execute Call
@@ -60,7 +64,7 @@ class GeminiClient:
             
             # According to docs, client.aio is for async
             response = await self.client.aio.models.generate_content(
-                model=self.model_name,
+                model=effective_model,
                 contents=contents,
                 config=config
             )
@@ -101,8 +105,8 @@ class GeminiClient:
                 "config": str(config) if config else None
             }
             
-            # Async Log Fire-and-Forget
-            asyncio.create_task(self._log_to_db(
+            # Log synchronously to ensure persistence
+            await self._log_to_db(
                 agent_name=agent_name,
                 trace_id=trace_id,
                 conversation_id=conversation_id,
@@ -112,10 +116,11 @@ class GeminiClient:
                 out_tok=output_tokens,
                 inp=input_payload,
                 out=response_payload,
-                err=error_msg
-            ))
+                err=error_msg,
+                model_used=effective_model
+            )
 
-    async def _log_to_db(self, agent_name, trace_id, conversation_id, method, duration, in_tok, out_tok, inp, out, err):
+    async def _log_to_db(self, agent_name, trace_id, conversation_id, method, duration, in_tok, out_tok, inp, out, err, model_used=None):
         if not self.supabase:
             return
             
@@ -124,7 +129,7 @@ class GeminiClient:
                 "agent_name": agent_name,
                 "trace_id": trace_id,
                 "conversation_id": conversation_id,
-                "model_name": self.model_name,
+                "model_name": model_used or self.model_name,
                 "method_name": method,
                 "duration_ms": duration,
                 "input_tokens": in_tok,

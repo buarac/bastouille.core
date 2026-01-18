@@ -1,4 +1,4 @@
-import { Leaf, Activity, Bot, Calendar, LayoutList, Sprout, ClipboardList, Cpu } from 'lucide-react';
+import { Leaf, Activity, Bot, Calendar, LayoutList, Sprout, ClipboardList, Cpu, Search } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -14,10 +14,12 @@ const Sidebar = () => {
         },
         {
             title: "Agents",
+            title: "Agents",
             items: [
                 { name: 'Botanique', path: '/agent-botanique', icon: Leaf },
                 { name: 'Chef de Culture', path: '/chat', icon: Bot },
                 { name: 'Chef V2 (Natif)', path: '/bastouille-chef', icon: Cpu },
+                { name: 'Agronome IA', path: '/agents/agronome-v1', icon: Sprout },
             ]
         },
         {

@@ -7,6 +7,7 @@ import AdminGestes from './pages/AdminGestes';
 import AdminLLMLogs from './pages/AdminLLMLogs';
 import AgentChat from './pages/AgentChat';
 import BastouilleChef from './pages/BastouilleChef';
+import Agronome from './pages/Agronome';
 import Sujets from './pages/Sujets';
 import Evenements from './pages/Evenements';
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="evenements" element={<Evenements />} />
           <Route path="chat" element={<AgentChat />} />
           <Route path="bastouille-chef" element={<BastouilleChef />} />
+          <Route path="agents/agronome-v1" element={<Agronome />} />
           <Route path="admin/activity" element={<AdminActivity />} />
           <Route path="admin/llm-logs" element={<AdminLLMLogs />} />
           <Route path="admin/gestes" element={<AdminGestes />} />

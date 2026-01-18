@@ -1,0 +1,61 @@
+{
+    "identité": {
+        "variete": "String",
+        "espece": "String",
+        "nom": "String",
+        "botanique": {
+            "ordre": "String",
+            "famille": "String",
+            "genre": "String",
+            "espece": "String"
+        },
+        "type": "String",
+        "categorie": "String",
+        "pollinisateurs": "[String]"
+    },
+    "portrait": {
+        "description": "String",
+        "poeme": "String",
+        "pays_origine": "String",
+        "morphologie": {
+            "couleur": "String",
+            "forme": "String",
+            "texture": "String",
+            "gout": "String",
+            "calibre": "String"
+        }
+    },
+    "agronomie": {
+        "exposition": "String",
+        "besoin_eau": "String",
+        "sol_ideal": "String",
+        "sol_ideal_ph": "[Float]",
+        "rusticite": "String",
+        "densite": "String"
+    },
+    "calendrier": {
+        "semis": [Int
+        ],
+        "plantation": [Int
+        ],
+        "floraison": [Int
+        ],
+        "recolte": [Int
+        ],
+        "taille": [Int
+        ]
+    },
+    "guide": {
+        "installation": "String",
+        "entretien": "String",
+        "arrosage": "String",
+        "maladies": "[String]",
+        "signes_alerte": "[String]",
+        "actions_sanitaire": "[String]"
+    },
+    "valorisation": {
+        "nombre_jour_recolte": "Int",
+        "signes_maturite": "[String]",
+        "conservation": "String"
+    }
+}

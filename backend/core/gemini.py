@@ -144,6 +144,30 @@ class GeminiClient:
         except Exception as e:
             logger.error(f"Failed to write llm_logs: {e}")
 
+    async def embed_content(self, text: str) -> List[float]:
+        """
+        Generate embedding for the given text using gemini-embedding-001.
+        """
+        try:
+            # Execute Call
+            response = await self.client.aio.models.embed_content(
+                model="text-embedding-004",
+                contents=text,
+                config=types.EmbedContentConfig(
+                    task_type="SEMANTIC_SIMILARITY"
+                )
+            )
+            
+            # Extract embedding vector
+            # Response structure has embeddings list
+            if response.embeddings:
+                return response.embeddings[0].values
+            return []
+            
+        except Exception as e:
+            logger.error(f"Failed to generate embedding: {e}")
+            raise e
+
 # Global Accessor
 _gemini_client = None
 def get_gemini_client():

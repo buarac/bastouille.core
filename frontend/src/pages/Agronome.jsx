@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Send, Sprout, Sun, Droplets, Thermometer, Calendar, BookOpen, AlertCircle, CheckCircle, RefreshCw, Cpu, Book, Info } from "lucide-react";
+import { Send, Sprout, Sun, Droplets, Thermometer, Calendar, BookOpen, AlertCircle, CheckCircle, RefreshCw, Cpu, Book, Info, Save, X, ArrowRight, Database } from "lucide-react";
 import ConfirmationModal from "../components/ConfirmationModal";
 
 export default function Agronome() {
@@ -8,6 +8,9 @@ export default function Agronome() {
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
     const [sessionId, setSessionId] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [duplicates, setDuplicates] = useState(null); // Array of matches if found
+    const [showJson, setShowJson] = useState(false);
 
     // Load State from LocalStorage
     useEffect(() => {
@@ -46,6 +49,7 @@ export default function Agronome() {
         setLoading(true);
         setResult(null);
         setError(null);
+        setDuplicates(null);
 
         try {
             const response = await fetch(`http://${window.location.hostname}:8000/agronome/v1/analyze`, {
@@ -71,8 +75,85 @@ export default function Agronome() {
         }
     };
 
-    // JSON Modal State
-    const [showJson, setShowJson] = useState(false);
+    const handleSave = async (forceCreate = false) => {
+        if (!result) return;
+        setSaving(true);
+        setError(null);
+
+        try {
+            // If forcing creation, skip check
+            if (forceCreate) {
+                await performCreate();
+                return;
+            }
+
+            // 1. Check for duplicates via Vector Search
+            const searchRes = await fetch(`http://${window.location.hostname}:8000/botanique/fiches/vector?q=${encodeURIComponent(result.identite.nom)}&limit=3`);
+            if (!searchRes.ok) throw new Error("Erreur lors de la vérification des doublons");
+
+            const matches = await searchRes.json();
+
+            // Filter matches that are actually close? 
+            // For now, if we have any matches with similarity > 0.85 (handled by backend or we check here?)
+            // The backend returns matches > threshold (0.5). let's be strict if we want auto-save.
+            // Requirement: "Si trouvé alors lister à l’utilisateur"
+
+            if (matches && matches.length > 0) {
+                setDuplicates(matches);
+                setSaving(false);
+                return;
+            }
+
+            // No duplicates, create directly
+            await performCreate();
+
+        } catch (err) {
+            setError(err.message);
+            setSaving(false);
+        }
+    };
+
+    const performCreate = async () => {
+        try {
+            const response = await fetch(`http://${window.location.hostname}:8000/botanique/fiches/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(result)
+            });
+
+            if (!response.ok) throw new Error("Erreur lors de la sauvegarde");
+
+            const saved = await response.json();
+            alert(`Fiche "${saved.nom}" sauvegardée avec succès ! (ID: ${saved.id.split('-')[0]}...)`);
+            setDuplicates(null);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const performUpdate = async (id) => {
+        setSaving(true);
+        try {
+            const response = await fetch(`http://${window.location.hostname}:8000/botanique/fiches/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(result)
+            });
+
+            if (!response.ok) throw new Error("Erreur lors de la mise à jour");
+
+            const saved = await response.json();
+            alert(`Fiche "${saved.nom}" mise à jour avec succès !`);
+            setDuplicates(null);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
 
     return (
         <div className="min-h-screen bg-[#0b1221] text-slate-200 pb-20 relative">
@@ -105,6 +186,18 @@ export default function Agronome() {
                         {loading ? "Analyse..." : "Lancer"}
                     </button>
 
+                    {/* SAVE Button */}
+                    {result && (
+                        <button
+                            onClick={() => handleSave(false)}
+                            disabled={saving}
+                            className="px-4 bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60 hover:text-emerald-300 border border-emerald-500/20 rounded-xl transition-all flex items-center justify-center"
+                            title="Sauvegarder en base"
+                        >
+                            {saving ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                        </button>
+                    )}
+
                     {/* JSON Button */}
                     {result && (
                         <button
@@ -124,6 +217,84 @@ export default function Agronome() {
                     <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3 text-red-400">
                         <AlertCircle className="w-5 h-5" />
                         {error}
+                    </div>
+                </div>
+            )}
+
+            {/* DUPLICATES MODAL */}
+            {duplicates && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+                    <div className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-[#1e293b] text-left align-middle shadow-xl transition-all border border-white/10 scale-100 animate-scale-in flex flex-col max-h-[80vh]">
+
+                        {/* HEADER */}
+                        <div className="p-6 pb-2">
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-full bg-amber-500/10 text-amber-500">
+                                        <Database className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-medium leading-6 text-white">
+                                            Fiches similaires trouvées
+                                        </h3>
+                                        <p className="text-sm text-slate-400 mt-1">
+                                            Des fiches ressemblantes existent déjà.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setDuplicates(null)}
+                                    className="text-slate-400 hover:text-white transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* CONTENT LIST */}
+                        <div className="px-6 py-2 overflow-y-auto custom-scrollbar">
+                            <div className="space-y-3">
+                                {duplicates.map((match) => (
+                                    <div key={match.id} className="bg-[#0f172a] border border-white/5 rounded-xl p-4 flex items-center justify-between group hover:border-emerald-500/30 transition-colors">
+                                        <div className="flex-1">
+                                            <div className="font-medium text-white flex items-center gap-2">
+                                                {match.nom}
+                                                {match.similarity && (
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${match.similarity > 0.9 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                                                        {Math.round(match.similarity * 100)}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-1">{match.variete} • {match.espece}</div>
+                                        </div>
+                                        <button
+                                            onClick={() => performUpdate(match.id)}
+                                            className="ml-4 px-3 py-1.5 bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-lg text-sm font-medium transition-colors border border-indigo-500/20 hover:border-indigo-500"
+                                        >
+                                            Mettre à jour
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* FOOTER ACTIONS */}
+                        <div className="p-6 pt-4 flex justify-end gap-3 bg-[#1e293b] border-t border-white/5 mt-auto">
+                            <button
+                                type="button"
+                                className="inline-flex justify-center rounded-lg border border-white/10 bg-[#0f172a] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 focus:outline-none transition-colors"
+                                onClick={() => setDuplicates(null)}
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                type="button"
+                                className="inline-flex justify-center rounded-lg border border-transparent bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 transition-colors shadow-lg shadow-emerald-900/20"
+                                onClick={() => handleSave(true)}
+                            >
+                                Créer une nouvelle fiche
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

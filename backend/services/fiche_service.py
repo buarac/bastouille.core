@@ -1,0 +1,142 @@
+import logging
+from typing import List, Dict, Any, Optional
+from uuid import UUID
+from datetime import datetime
+
+from core.gemini import get_gemini_client
+from services.persistence import get_supabase_client
+from models.agronome import FichePlant
+from models.fiche_botanique import FicheBotaniqueDB
+
+logger = logging.getLogger(__name__)
+
+class FicheService:
+    def __init__(self):
+        self.supabase = get_supabase_client()
+        self.gemini = get_gemini_client()
+
+    async def create_fiche(self, fiche_data: FichePlant) -> Optional[FicheBotaniqueDB]:
+        if not self.supabase:
+            logger.warning("Supabase client not available")
+            return None
+
+        try:
+            # Extract core fields
+            nom = fiche_data.identite.nom
+            variete = fiche_data.identite.variete
+            espece = fiche_data.identite.espece
+            
+            # Generate embedding
+            logger.info(f"Generating embedding for: {nom}")
+            embedding = await self.gemini.embed_content(nom)
+            
+            # Serialize for DB
+            payload = {
+                "data": fiche_data.model_dump(mode="json"),
+                "variete": variete,
+                "espece": espece,
+                "nom": nom,
+                "embedding_nom": embedding
+            }
+            
+            response = self.supabase.table("fiches_botanique").insert(payload).execute()
+            
+            if response.data:
+                # We return the DB object. embedding_nom might be large, FicheBotaniqueDB includes it.
+                return FicheBotaniqueDB(**response.data[0])
+            return None
+
+        except Exception as e:
+            logger.error(f"Error creating fiche: {e}")
+            raise e
+
+    async def update_fiche(self, fiche_id: str, fiche_data: FichePlant) -> Optional[FicheBotaniqueDB]:
+        if not self.supabase:
+            return None
+            
+        try:
+            nom = fiche_data.identite.nom
+            variete = fiche_data.identite.variete
+            espece = fiche_data.identite.espece
+            
+            logger.info(f"Regenerating embedding for update: {nom}")
+            embedding = await self.gemini.embed_content(nom)
+            
+            payload = {
+                "data": fiche_data.model_dump(mode="json"),
+                "variete": variete,
+                "espece": espece,
+                "nom": nom,
+                "embedding_nom": embedding,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            response = self.supabase.table("fiches_botanique").update(payload).eq("id", fiche_id).execute()
+            
+            if response.data:
+                return FicheBotaniqueDB(**response.data[0])
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error updating fiche: {e}")
+            raise e
+
+    async def search_exact(self, query: str) -> List[FicheBotaniqueDB]:
+        """
+        Search by exact match on nom, variete, or espece (case insensitive ilike)
+        """
+        if not self.supabase:
+            return []
+            
+        try:
+            # Using OR filter
+            or_filter = f"nom.ilike.%{query}%,variete.ilike.%{query}%,espece.ilike.%{query}%"
+            
+            response = self.supabase.table("fiches_botanique")\
+                .select("*")\
+                .or_(or_filter)\
+                .execute()
+                
+            return [FicheBotaniqueDB(**item) for item in response.data]
+            
+        except Exception as e:
+            logger.error(f"Error searching fiches (exact): {e}")
+            return []
+
+    async def search_vector(self, query: str, limit: int = 5, verbose: bool = False) -> List[FicheBotaniqueDB]:
+        """
+        Search by vector similarity on nom.
+        Default threshold is 0.85. If verbose is True, threshold is -1 (return all).
+        """
+        if not self.supabase:
+            return []
+            
+        try:
+            # Generate query embedding
+            embedding = await self.gemini.embed_content(query)
+            
+            # Determine threshold
+            # If verbose, we want everything, so threshold -1 (similarity is -1 to 1 or 0 to 1) -> 0 is safe for cosine distance 1-dist
+            # Cosine similarity is usually 0 to 1 for embeddings.
+            threshold = 0.85
+            if verbose:
+                threshold = 0.0
+            
+            params = {
+                "query_embedding": embedding,
+                "match_threshold": threshold,
+                "match_count": limit
+            }
+            
+            # RPC call
+            response = self.supabase.rpc("match_fiches", params).execute()
+            
+            results = []
+            for item in response.data:
+                results.append(FicheBotaniqueDB(**item))
+                
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error searching fiches (vector): {e}")
+            return []
